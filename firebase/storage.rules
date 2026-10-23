@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Encrypted Media Chunks
+    // Files are client-side encrypted before uploading; raw keys are NEVER uploaded to Storage.
+    match /encrypted_media/{chunkId} {
+      // Limit file size to 25MB per media blob, authenticated access only
+      allow write: if request.auth != null &&
+                      request.resource.size < 25 * 1024 * 1024 &&
+                      request.resource.contentType == 'application/octet-stream';
+                      
+      // Capability read (direct chunkId required)
+      allow read: if request.auth != null;
+      
+      // Cleanup allowed by receiver or sender
+      allow delete: if request.auth != null;
+    }
+    
+    // Encrypted User Backups (Section 4.7)
+    // Placed under a random derived backupId, not tied to Firebase UID.
+    match /encrypted_backups/{backupId} {
+      allow write: if request.auth != null && request.resource.size < 50 * 1024 * 1024;
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+  }
+}

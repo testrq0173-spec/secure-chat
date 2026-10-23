@@ -1,0 +1,535 @@
+// ignore_for_file: prefer_initializing_formals
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import '../../core/crypto/crypto_utils.dart';
+import '../../core/crypto/double_ratchet.dart';
+import '../../core/storage/secure_storage_service.dart';
+import '../local/database_service.dart';
+import '../models/contact.dart';
+import '../models/conversation.dart';
+import '../models/group.dart';
+import '../models/message.dart';
+import '../remote/relay_service.dart';
+
+class ChatRepository {
+  final IRelayService _relayService;
+  final DatabaseService _databaseService;
+  final SecureStorageService _secureStorage;
+  final _uuid = const Uuid();
+
+  final Map<String, StreamSubscription> _queueSubscriptions = {};
+  final StreamController<Message> _incomingMessageStream = StreamController<Message>.broadcast();
+
+  ChatRepository({
+    required IRelayService relayService,
+    required DatabaseService databaseService,
+    required SecureStorageService secureStorage,
+  })  : _relayService = relayService,
+        _databaseService = databaseService,
+        _secureStorage = secureStorage;
+
+  Stream<Message> get onIncomingMessage => _incomingMessageStream.stream;
+
+  /// Initializes listeners for all active contact receiving queues
+  Future<void> startListeningToQueues() async {
+    final contacts = await _databaseService.getAllContacts();
+    for (final contact in contacts) {
+      _listenToContactQueue(contact);
+    }
+  }
+
+  void _listenToContactQueue(Contact contact) {
+    if (_queueSubscriptions.containsKey(contact.receiveQueueId)) return;
+
+    final sub = _relayService.listenToQueue(contact.receiveQueueId).listen((packet) async {
+      await _processIncomingPacket(contact, packet);
+    });
+    _queueSubscriptions[contact.receiveQueueId] = sub;
+  }
+
+  /// Process an incoming encrypted packet from a peer's queue
+  Future<void> _processIncomingPacket(Contact contact, QueuePacket queuePacket) async {
+    try {
+      if (contact.ratchetStateJson == null) return;
+
+      // 1. Restore Double Ratchet State
+      final ratchet = DoubleRatchetState.deserialize(contact.ratchetStateJson!);
+
+      // 2. Unpack outer queue payload
+      final outerCiphertext = base64Decode(queuePacket.encryptedPayload);
+
+      // 3. Deserialize Ratchet packet
+      final ratchetPacket = EncryptedMessagePacket.fromCombinedBytes(outerCiphertext);
+
+      // 4. Decrypt and unpad
+      final plaintextBytes = await ratchet.decrypt(ratchetPacket);
+      final plaintextJson = utf8.decode(plaintextBytes);
+      final payload = jsonDecode(plaintextJson) as Map<String, dynamic>;
+
+      // 5. Save updated ratchet state
+      final updatedRatchetJson = await ratchet.serialize();
+      await _databaseService.saveContact(contact.copyWith(ratchetStateJson: updatedRatchetJson));
+
+      // 6. Handle action / control payloads
+      final action = payload['action'] as String? ?? 'message';
+
+      if (action == 'delete_everyone') {
+        final targetMessageId = payload['targetMessageId'] as String;
+        await _databaseService.deleteMessageForMe(targetMessageId);
+        // Acknowledge and delete packet
+        await _relayService.deletePacket(queueId: contact.receiveQueueId, packetId: queuePacket.packetId);
+        return;
+      }
+
+      if (action == 'reaction') {
+        final targetMessageId = payload['targetMessageId'] as String;
+        final emoji = payload['emoji'] as String;
+        final reaction = Reaction(
+          id: _uuid.v4(),
+          messageId: targetMessageId,
+          contactId: contact.id,
+          emoji: emoji,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
+        await _databaseService.saveReaction(reaction);
+        await _relayService.deletePacket(queueId: contact.receiveQueueId, packetId: queuePacket.packetId);
+        return;
+      }
+
+      // Normal message
+      final msgId = payload['id'] as String? ?? _uuid.v4();
+      final content = payload['content'] as String? ?? '';
+      final typeStr = payload['type'] as String? ?? 'text';
+      final type = MessageType.values.firstWhere((e) => e.name == typeStr, orElse: () => MessageType.text);
+
+      int? expiresAt;
+      if (contact.disappearingDurationSeconds > 0) {
+        expiresAt = DateTime.now().millisecondsSinceEpoch + (contact.disappearingDurationSeconds * 1000);
+      }
+
+      final message = Message(
+        id: msgId,
+        conversationId: contact.id,
+        senderId: contact.id,
+        senderName: contact.displayName,
+        type: type,
+        content: content,
+        filePath: payload['filePath'] as String?,
+        fileName: payload['fileName'] as String?,
+        fileSize: payload['fileSize'] as int?,
+        mediaDurationMs: payload['mediaDurationMs'] as int?,
+        status: MessageStatus.delivered,
+        timestamp: payload['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+        expiresAt: expiresAt,
+        replyToId: payload['replyToId'] as String?,
+        replyToText: payload['replyToText'] as String?,
+        replyToSender: payload['replyToSender'] as String?,
+      );
+
+      await _databaseService.saveMessage(message);
+
+      // Update Conversation snippet and unread count
+      final conv = await _databaseService.getConversation(contact.id);
+      if (conv != null) {
+        await _databaseService.saveConversation(
+          conv.copyWith(
+            lastMessageText: content.isNotEmpty ? content : '[${type.name}]',
+            lastMessageTime: message.timestamp,
+            unreadCount: conv.unreadCount + 1,
+          ),
+        );
+      }
+
+      _incomingMessageStream.add(message);
+
+      // 7. Instant packet deletion from Blinded Postbox!
+      await _relayService.deletePacket(
+        queueId: contact.receiveQueueId,
+        packetId: queuePacket.packetId,
+      );
+    } catch (e) {
+      debugPrint('Error processing incoming queue packet: $e');
+    }
+  }
+
+  /// Sends a 1-to-1 end-to-end encrypted message
+  Future<Message> sendMessage({
+    required String conversationId,
+    required String content,
+    MessageType type = MessageType.text,
+    String? filePath,
+    String? fileName,
+    int? fileSize,
+    int? mediaDurationMs,
+    String? replyToId,
+    String? replyToText,
+    String? replyToSender,
+  }) async {
+    final activeProfileId = await _secureStorage.getActiveProfileId();
+    final profile = activeProfileId != null ? await _databaseService.getProfile(activeProfileId) : null;
+    final senderName = profile?.displayName ?? 'Me';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final messageId = _uuid.v4();
+
+    // Check if this is the "Notes to Self" conversation
+    if (conversationId == 'notes_to_self') {
+      final noteMessage = Message(
+        id: messageId,
+        conversationId: 'notes_to_self',
+        senderId: 'self',
+        senderName: 'Notes to Self',
+        type: type,
+        content: content,
+        filePath: filePath,
+        fileName: fileName,
+        fileSize: fileSize,
+        mediaDurationMs: mediaDurationMs,
+        status: MessageStatus.delivered,
+        timestamp: timestamp,
+        isSavedNote: true,
+      );
+      await _databaseService.saveMessage(noteMessage);
+      final noteConv = await _databaseService.getConversation('notes_to_self');
+      if (noteConv != null) {
+        await _databaseService.saveConversation(
+          noteConv.copyWith(
+            lastMessageText: content.isNotEmpty ? content : '[${type.name}]',
+            lastMessageTime: timestamp,
+          ),
+        );
+      }
+      return noteMessage;
+    }
+
+    // Check if this is a group conversation
+    final group = await _databaseService.getGroup(conversationId);
+    if (group != null) {
+      final message = Message(
+        id: messageId,
+        conversationId: conversationId,
+        senderId: 'self',
+        senderName: senderName,
+        type: type,
+        content: content,
+        filePath: filePath,
+        fileName: fileName,
+        fileSize: fileSize,
+        mediaDurationMs: mediaDurationMs,
+        status: MessageStatus.delivered,
+        timestamp: timestamp,
+        replyToId: replyToId,
+        replyToText: replyToText,
+        replyToSender: replyToSender,
+      );
+
+      await _databaseService.saveMessage(message);
+
+      final conv = await _databaseService.getConversation(conversationId);
+      if (conv != null) {
+        await _databaseService.saveConversation(
+          conv.copyWith(
+            lastMessageText: content.isNotEmpty ? content : '[${type.name}]',
+            lastMessageTime: timestamp,
+            draftText: '',
+          ),
+        );
+      }
+
+      // Fan-out to group members
+      final members = await _databaseService.getGroupMembers(conversationId);
+      for (final member in members) {
+        if (member.contactId == 'self' || member.contactId == activeProfileId) continue;
+        final memberContact = await _databaseService.getContact(member.contactId);
+        if (memberContact != null && memberContact.ratchetStateJson != null) {
+          try {
+            final ratchet = DoubleRatchetState.deserialize(memberContact.ratchetStateJson!);
+            final payload = {
+              'id': messageId,
+              'action': 'message',
+              'groupId': conversationId,
+              'groupName': group.name,
+              'type': type.name,
+              'content': content,
+              'filePath': filePath,
+              'fileName': fileName,
+              'fileSize': fileSize,
+              'mediaDurationMs': mediaDurationMs,
+              'timestamp': timestamp,
+              'replyToId': replyToId,
+              'replyToText': replyToText,
+              'replyToSender': replyToSender,
+            };
+            final plaintextBytes = CryptoUtils.utf8Bytes(jsonEncode(payload));
+            final encryptedPacket = await ratchet.encrypt(plaintextBytes);
+            final updatedRatchetJson = await ratchet.serialize();
+            await _databaseService.saveContact(memberContact.copyWith(ratchetStateJson: updatedRatchetJson));
+            await _relayService.depositPacket(
+              queueId: memberContact.sendQueueId,
+              encryptedPayload: base64Encode(encryptedPacket.toCombinedBytes()),
+            );
+          } catch (e) {
+            debugPrint('Failed to dispatch group packet to ${member.displayName}: $e');
+          }
+        }
+      }
+      return message;
+    }
+
+    final contact = await _databaseService.getContact(conversationId);
+    if (contact == null) {
+      throw StateError('Cannot send message: Contact not found');
+    }
+
+    int? expiresAt;
+    if (contact.disappearingDurationSeconds > 0) {
+      expiresAt = timestamp + (contact.disappearingDurationSeconds * 1000);
+    }
+
+    final message = Message(
+      id: messageId,
+      conversationId: conversationId,
+      senderId: 'self',
+      senderName: senderName,
+      type: type,
+      content: content,
+      filePath: filePath,
+      fileName: fileName,
+      fileSize: fileSize,
+      mediaDurationMs: mediaDurationMs,
+      status: MessageStatus.sent,
+      timestamp: timestamp,
+      expiresAt: expiresAt,
+      replyToId: replyToId,
+      replyToText: replyToText,
+      replyToSender: replyToSender,
+    );
+
+    // Save locally immediately
+    await _databaseService.saveMessage(message);
+
+    // Update conversation snippet and clear draft
+    final conv = await _databaseService.getConversation(conversationId);
+    if (conv != null) {
+      await _databaseService.saveConversation(
+        conv.copyWith(
+          lastMessageText: content.isNotEmpty ? content : '[${type.name}]',
+          lastMessageTime: timestamp,
+          draftText: '',
+        ),
+      );
+    }
+
+    // Encrypt and dispatch in background
+    try {
+      if (contact.ratchetStateJson != null) {
+        final ratchet = DoubleRatchetState.deserialize(contact.ratchetStateJson!);
+
+        final payload = {
+          'id': messageId,
+          'action': 'message',
+          'type': type.name,
+          'content': content,
+          'filePath': filePath,
+          'fileName': fileName,
+          'fileSize': fileSize,
+          'mediaDurationMs': mediaDurationMs,
+          'timestamp': timestamp,
+          'replyToId': replyToId,
+          'replyToText': replyToText,
+          'replyToSender': replyToSender,
+        };
+
+        final plaintextBytes = CryptoUtils.utf8Bytes(jsonEncode(payload));
+        final encryptedRatchetPacket = await ratchet.encrypt(plaintextBytes);
+
+        // Serialize ratchet packet to bytes
+        final combinedBytes = encryptedRatchetPacket.toCombinedBytes();
+
+        // Save updated ratchet state
+        final updatedRatchetJson = await ratchet.serialize();
+        await _databaseService.saveContact(contact.copyWith(ratchetStateJson: updatedRatchetJson));
+
+        // Deposit into recipient's sendQueueId
+        await _relayService.depositPacket(
+          queueId: contact.sendQueueId,
+          encryptedPayload: base64Encode(combinedBytes),
+        );
+      }
+
+      // Mark message delivered
+      await _databaseService.updateMessageStatus(messageId, MessageStatus.delivered);
+    } catch (e) {
+      debugPrint('Failed to dispatch packet: $e');
+      await _databaseService.updateMessageStatus(messageId, MessageStatus.failed);
+    }
+
+    return message;
+  }
+
+  /// Sends a reaction emoji on an existing message
+  Future<void> sendReaction({
+    required String messageId,
+    required String conversationId,
+    required String emoji,
+  }) async {
+    final reaction = Reaction(
+      id: _uuid.v4(),
+      messageId: messageId,
+      contactId: 'self',
+      emoji: emoji,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _databaseService.saveReaction(reaction);
+
+    final contact = await _databaseService.getContact(conversationId);
+    if (contact != null && contact.ratchetStateJson != null) {
+      final ratchet = DoubleRatchetState.deserialize(contact.ratchetStateJson!);
+      final payload = {
+        'action': 'reaction',
+        'targetMessageId': messageId,
+        'emoji': emoji,
+      };
+      final encryptedPacket = await ratchet.encrypt(CryptoUtils.utf8Bytes(jsonEncode(payload)));
+      final updatedRatchet = await ratchet.serialize();
+      await _databaseService.saveContact(contact.copyWith(ratchetStateJson: updatedRatchet));
+
+      await _relayService.depositPacket(
+        queueId: contact.sendQueueId,
+        encryptedPayload: base64Encode(encryptedPacket.toCombinedBytes()),
+      );
+    }
+  }
+
+  /// Edits an existing message with edit history
+  Future<void> editMessage({
+    required String messageId,
+    required String newContent,
+  }) async {
+    final msg = await _databaseService.getMessage(messageId);
+    if (msg == null) return;
+
+    final history = List<String>.from(msg.editHistory ?? []);
+    history.add(msg.content);
+
+    final updated = msg.copyWith(
+      content: newContent,
+      isEdited: true,
+      editHistory: history,
+    );
+    await _databaseService.saveMessage(updated);
+  }
+
+  /// Deletes a message for me
+  Future<void> deleteForMe(String messageId) async {
+    await _databaseService.deleteMessageForMe(messageId);
+  }
+
+  /// Deletes a message for everyone (broadcasts delete command)
+  Future<void> deleteForEveryone({
+    required String messageId,
+    required String conversationId,
+  }) async {
+    await _databaseService.deleteMessageForMe(messageId);
+
+    final contact = await _databaseService.getContact(conversationId);
+    if (contact != null && contact.ratchetStateJson != null) {
+      final ratchet = DoubleRatchetState.deserialize(contact.ratchetStateJson!);
+      final payload = {
+        'action': 'delete_everyone',
+        'targetMessageId': messageId,
+      };
+      final encryptedPacket = await ratchet.encrypt(CryptoUtils.utf8Bytes(jsonEncode(payload)));
+      final updatedRatchet = await ratchet.serialize();
+      await _databaseService.saveContact(contact.copyWith(ratchetStateJson: updatedRatchet));
+
+      await _relayService.depositPacket(
+        queueId: contact.sendQueueId,
+        encryptedPayload: base64Encode(encryptedPacket.toCombinedBytes()),
+      );
+    }
+  }
+
+  /// Creates a Group chat with members
+  Future<Group> createGroup({
+    required String name,
+    required List<String> memberContactIds,
+    String? avatar,
+  }) async {
+    final groupId = _uuid.v4();
+    final group = Group(
+      id: groupId,
+      name: name,
+      avatar: avatar,
+      myRole: GroupRole.owner,
+      inviteLink: 'bharosa://group?id=$groupId',
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _databaseService.saveGroup(group);
+
+    // Add self as owner
+    await _databaseService.addGroupMember(
+      GroupMember(
+        groupId: groupId,
+        contactId: 'self',
+        displayName: 'Me',
+        role: GroupRole.owner,
+        joinedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+
+    // Add selected members
+    for (final contactId in memberContactIds) {
+      final contact = await _databaseService.getContact(contactId);
+      if (contact != null) {
+        await _databaseService.addGroupMember(
+          GroupMember(
+            groupId: groupId,
+            contactId: contact.id,
+            displayName: contact.displayName,
+            role: GroupRole.member,
+            joinedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      }
+    }
+
+    // Create group conversation entry
+    final conv = Conversation(
+      id: groupId,
+      type: ConversationType.group,
+      title: name,
+      groupId: groupId,
+      lastMessageText: 'Group created with ${memberContactIds.length + 1} members',
+      lastMessageTime: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _databaseService.saveConversation(conv);
+
+    return group;
+  }
+
+  /// Create or retrieve "Saved Notes" self-conversation
+  Future<Conversation> getOrCreateSavedNotes() async {
+    var conv = await _databaseService.getConversation('notes_to_self');
+    if (conv == null) {
+      conv = Conversation(
+        id: 'notes_to_self',
+        type: ConversationType.notes,
+        title: 'Saved Notes',
+        lastMessageText: 'Personal private vault',
+        lastMessageTime: DateTime.now().millisecondsSinceEpoch,
+      );
+      await _databaseService.saveConversation(conv);
+    }
+    return conv;
+  }
+
+  void dispose() {
+    for (final sub in _queueSubscriptions.values) {
+      sub.cancel();
+    }
+    _queueSubscriptions.clear();
+    _incomingMessageStream.close();
+  }
+}
