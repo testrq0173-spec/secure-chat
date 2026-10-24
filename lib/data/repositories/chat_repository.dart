@@ -27,6 +27,7 @@ class ChatRepository {
 
   final Map<String, StreamSubscription> _queueSubscriptions = {};
   final StreamController<Message> _incomingMessageStream = StreamController<Message>.broadcast();
+  final Map<String, List<String?>> _chunkBuffers = {};
   Timer? _heartbeatTimer;
 
   ChatRepository({
@@ -251,6 +252,46 @@ class ChatRepository {
         return;
       }
 
+      if (action == 'file_chunk') {
+        final targetMessageId = payload['targetMessageId'] as String;
+        final chunkIndex = payload['chunkIndex'] as int;
+        final totalChunks = payload['totalChunks'] as int;
+        final chunkData = payload['chunkData'] as String;
+        final fName = payload['fileName'] as String? ?? 'media_$targetMessageId.dat';
+
+        _chunkBuffers.putIfAbsent(targetMessageId, () => List<String?>.filled(totalChunks, null));
+        _chunkBuffers[targetMessageId]![chunkIndex] = chunkData;
+
+        if (!_chunkBuffers[targetMessageId]!.contains(null)) {
+          final fullBase64 = _chunkBuffers[targetMessageId]!.join();
+          _chunkBuffers.remove(targetMessageId);
+
+          try {
+            final fileBytes = base64Decode(fullBase64);
+            final appDir = await getApplicationDocumentsDirectory();
+            final mediaDir = Directory('${appDir.path}/media');
+            if (!await mediaDir.exists()) {
+              await mediaDir.create(recursive: true);
+            }
+            final ext = p.extension(fName).isNotEmpty ? p.extension(fName) : '.dat';
+            final targetFile = File('${mediaDir.path}/$targetMessageId$ext');
+            await targetFile.writeAsBytes(fileBytes);
+
+            final existingMsg = await _databaseService.getMessage(targetMessageId);
+            if (existingMsg != null) {
+              final updatedMsg = existingMsg.copyWith(filePath: targetFile.path);
+              await _databaseService.saveMessage(updatedMsg);
+              _incomingMessageStream.add(updatedMsg);
+            }
+          } catch (e) {
+            debugPrint('Error reassembling file chunks: $e');
+          }
+        }
+
+        await _relayService.deletePacket(queueId: contact.receiveQueueId, packetId: queuePacket.packetId);
+        return;
+      }
+
       // Normal message
       final msgId = payload['id'] as String? ?? _uuid.v4();
       final content = payload['content'] as String? ?? '';
@@ -408,13 +449,21 @@ class ChatRepository {
       return noteMessage;
     }
 
-    // Prepare inline media payload if file exists and <= 750KB
+    // Prepare inline media payload or chunks if file exists
     String? fileBase64;
+    List<String>? fileChunks;
     if (filePath != null && File(filePath).existsSync()) {
       try {
         final bytes = await File(filePath).readAsBytes();
-        if (bytes.length <= 750 * 1024) {
+        if (bytes.length <= 650 * 1024) {
           fileBase64 = base64Encode(bytes);
+        } else {
+          const chunkSize = 400 * 1024;
+          fileChunks = [];
+          for (var i = 0; i < bytes.length; i += chunkSize) {
+            final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+            fileChunks.add(base64Encode(bytes.sublist(i, end)));
+          }
         }
       } catch (e) {
         debugPrint('File read error for inline encryption: $e');
@@ -588,6 +637,32 @@ class ChatRepository {
           queueId: contact.sendQueueId,
           encryptedPayload: base64Encode(combinedBytes),
         );
+
+        // If file was chunked, dispatch chunks sequentially
+        if (fileChunks != null && fileChunks.isNotEmpty) {
+          for (var i = 0; i < fileChunks.length; i++) {
+            final latestContact = await _databaseService.getContact(conversationId);
+            if (latestContact != null && latestContact.ratchetStateJson != null) {
+              final latestRatchet = DoubleRatchetState.deserialize(latestContact.ratchetStateJson!);
+              final chunkPayload = {
+                'action': 'file_chunk',
+                'targetMessageId': messageId,
+                'chunkIndex': i,
+                'totalChunks': fileChunks.length,
+                'chunkData': fileChunks[i],
+                'fileName': fileName,
+              };
+              final chunkBytes = CryptoUtils.utf8Bytes(jsonEncode(chunkPayload));
+              final chunkPacket = await latestRatchet.encrypt(chunkBytes);
+              final updatedJson = await latestRatchet.serialize();
+              await _databaseService.saveContact(latestContact.copyWith(ratchetStateJson: updatedJson));
+              await _relayService.depositPacket(
+                queueId: latestContact.sendQueueId,
+                encryptedPayload: base64Encode(chunkPacket.toCombinedBytes()),
+              );
+            }
+          }
+        }
       }
 
       // Mark message delivered

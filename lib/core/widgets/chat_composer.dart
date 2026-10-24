@@ -99,7 +99,14 @@ class _ChatComposerState extends State<ChatComposer> {
       final dir = await getTemporaryDirectory();
       final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-      await recorder.start(const RecordConfig(), path: path);
+      await recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 64000,
+          sampleRate: 44100,
+        ),
+        path: path,
+      );
 
       setState(() {
         _isRecordingVoice = true;
@@ -170,7 +177,9 @@ class _ChatComposerState extends State<ChatComposer> {
     try {
       final xfile = await _imagePicker.pickImage(
         source: source,
-        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 75,
       );
       if (xfile == null) return;
 
@@ -508,6 +517,8 @@ class _ChatComposerState extends State<ChatComposer> {
                     else
                       GestureDetector(
                         onTap: _startRecording,
+                        onLongPress: _startRecording,
+                        onLongPressEnd: (_) => _stopRecording(shouldSend: true),
                         child: Container(
                           width: 44,
                           height: 44,

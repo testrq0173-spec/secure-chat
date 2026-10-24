@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/services/background_delivery_service.dart';
+import '../core/services/notification_service.dart';
 import '../core/services/screen_protector_service.dart';
 import '../core/theme/app_theme.dart';
 import 'providers.dart';
@@ -21,7 +22,8 @@ class _BharosaAppState extends ConsumerState<BharosaApp> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initSecurity();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await NotificationService.instance.requestPermission();
       BackgroundDeliveryService.instance.setAppForeground(true);
       ref.read(chatRepositoryProvider).startListeningToQueues();
     });

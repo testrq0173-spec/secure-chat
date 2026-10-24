@@ -16,6 +16,8 @@ import '../../data/local/database_service.dart';
 import '../../data/models/contact.dart';
 import '../../data/models/message.dart';
 import '../../data/remote/relay_service.dart';
+import '../../data/repositories/connection_repository.dart';
+import '../storage/secure_storage_service.dart';
 import 'notification_service.dart';
 
 /// WhatsApp-style Persistent Background Delivery Service.
@@ -115,6 +117,11 @@ void onStart(ServiceInstance service) async {
   final dbService = DatabaseService();
   final firestore = FirebaseFirestore.instance;
   final uuid = const Uuid();
+  final connRepo = ConnectionRepository(
+    relayService: HybridRelayService(),
+    databaseService: dbService,
+    secureStorage: SecureStorageService(),
+  );
 
   bool isAppInForeground = false;
   final Map<String, StreamSubscription> activeSubscriptions = {};
@@ -299,14 +306,36 @@ void onStart(ServiceInstance service) async {
           }
         }
 
+        try {
+          await NotificationService.instance.showMessageNotification(
+            title: contact.displayName,
+            body: notificationBody,
+            conversationId: contact.id,
+          );
+        } catch (e) {
+          debugPrint('Notification trigger warning in background: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Background message processing error: $e');
+    }
+  }
+
+  Future<void> processInvitePacket(String inboxQueueId, QueuePacket packet) async {
+    try {
+      final contact = await connRepo.processIncomingHandshake(
+        inboxQueueId: inboxQueueId,
+        packet: packet,
+      );
+      if (contact != null) {
         await NotificationService.instance.showMessageNotification(
           title: contact.displayName,
-          body: notificationBody,
+          body: 'Sent you a connection request',
           conversationId: contact.id,
         );
       }
     } catch (e) {
-      debugPrint('Background message processing error: $e');
+      debugPrint('Background handshake processing error: $e');
     }
   }
 
@@ -323,6 +352,23 @@ void onStart(ServiceInstance service) async {
         final data = doc.data();
         final packet = QueuePacket.fromMap(data);
         await processPacket(contact, packet);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> drainInviteQueue(String inboxQueueId) async {
+    try {
+      final snap = await firestore
+          .collection('queues')
+          .doc(inboxQueueId)
+          .collection('packets')
+          .orderBy('timestamp')
+          .get();
+
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final packet = QueuePacket.fromMap(data);
+        await processInvitePacket(inboxQueueId, packet);
       }
     } catch (_) {}
   }
@@ -351,6 +397,34 @@ void onStart(ServiceInstance service) async {
         // Drain pending packets
         await drainQueue(qId, contact);
       }
+
+      // Sync active invite queues
+      final db = await dbService.database;
+      final inviteRows = await db.query(
+        'settings',
+        where: "key LIKE 'pending_invite_%'",
+      );
+      for (final row in inviteRows) {
+        try {
+          final meta = jsonDecode(row['value'] as String) as Map<String, dynamic>;
+          final inboxQueueId = meta['inboxQueueId'] as String;
+          if (!activeSubscriptions.containsKey(inboxQueueId)) {
+            final sub = firestore
+                .collection('queues')
+                .doc(inboxQueueId)
+                .collection('packets')
+                .snapshots()
+                .expand((s) => s.docChanges)
+                .where((c) => c.type == DocumentChangeType.added && c.doc.data() != null)
+                .listen((change) async {
+              final packet = QueuePacket.fromMap(change.doc.data()!);
+              await processInvitePacket(inboxQueueId, packet);
+            });
+            activeSubscriptions[inboxQueueId] = sub;
+          }
+          await drainInviteQueue(inboxQueueId);
+        } catch (_) {}
+      }
     } catch (e) {
       debugPrint('Background syncAll error: $e');
     }
@@ -369,6 +443,18 @@ void onStart(ServiceInstance service) async {
       final contacts = await dbService.getAllContacts();
       for (final c in contacts) {
         await drainQueue(c.receiveQueueId, c);
+      }
+      final db = await dbService.database;
+      final inviteRows = await db.query(
+        'settings',
+        where: "key LIKE 'pending_invite_%'",
+      );
+      for (final row in inviteRows) {
+        try {
+          final meta = jsonDecode(row['value'] as String) as Map<String, dynamic>;
+          final inboxQueueId = meta['inboxQueueId'] as String;
+          await drainInviteQueue(inboxQueueId);
+        } catch (_) {}
       }
     } catch (_) {}
   });

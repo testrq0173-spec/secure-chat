@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -25,6 +26,14 @@ class NotificationService {
     await androidImpl?.requestNotificationsPermission();
 
     _isInitialized = true;
+  }
+
+  Future<void> requestPermission() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.requestNotificationsPermission();
+    } catch (_) {}
   }
 
   Future<void> showMessageNotification({

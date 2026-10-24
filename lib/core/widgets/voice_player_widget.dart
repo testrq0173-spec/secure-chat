@@ -33,13 +33,22 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
     _initAudio();
   }
 
+  @override
+  void didUpdateWidget(covariant VoicePlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.filePath != widget.filePath && widget.filePath != null) {
+      _initAudio();
+    }
+  }
+
   Future<void> _initAudio() async {
     if (widget.filePath == null) return;
     final file = File(widget.filePath!);
     if (!await file.exists()) return;
 
     try {
-      _player = AudioPlayer();
+      _player ??= AudioPlayer();
+      await _player!.stop();
       await _player!.setFilePath(widget.filePath!);
       _totalDuration = _player!.duration ?? _totalDuration;
       _isLoaded = true;
@@ -58,8 +67,8 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
         if (!mounted) return;
         setState(() => _position = pos);
       });
-    } catch (_) {
-      // Audio load fallback
+    } catch (e) {
+      debugPrint('Voice note audio loading error: $e');
     }
   }
 
@@ -70,6 +79,9 @@ class _VoicePlayerWidgetState extends State<VoicePlayerWidget> {
   }
 
   void _togglePlay() async {
+    if (_player == null || !_isLoaded) {
+      await _initAudio();
+    }
     if (_player == null || !_isLoaded) return;
     if (_isPlaying) {
       await _player!.pause();
