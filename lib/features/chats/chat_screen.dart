@@ -98,15 +98,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
   }
 
-  Future<void> _sendMedia(MessageType type, String fileName, int fileSize) async {
+  Future<void> _sendMedia({
+    required MessageType type,
+    required String filePath,
+    required String fileName,
+    required int fileSize,
+    int? mediaDurationMs,
+  }) async {
     final chatRepo = ref.read(chatRepositoryProvider);
-    await chatRepo.sendMessage(
-      conversationId: widget.conversationId,
-      content: '',
-      type: type,
-      fileName: fileName,
-      fileSize: fileSize,
-    );
+    try {
+      await chatRepo.sendMessage(
+        conversationId: widget.conversationId,
+        content: '',
+        type: type,
+        filePath: filePath,
+        fileName: fileName,
+        fileSize: fileSize,
+        mediaDurationMs: mediaDurationMs,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Media delivery error: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
     ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
     ref.read(conversationsProvider.notifier).loadConversations();
     _scrollToBottom();
