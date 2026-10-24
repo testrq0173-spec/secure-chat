@@ -209,6 +209,29 @@ class ChatBubble extends StatelessWidget {
                                           style: const TextStyle(color: Colors.white, fontSize: 10),
                                         ),
                                       ),
+                                      if (message.status == MessageStatus.sending)
+                                        Positioned.fill(
+                                          child: Container(
+                                            color: Colors.black45,
+                                            child: Center(
+                                              child: Container(
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withValues(alpha: 0.65),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2.5,
+                                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                     ],
                                   )
                                 : Container(
@@ -221,11 +244,18 @@ class ChatBubble extends StatelessWidget {
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.image_outlined, size: 40, color: textColor),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.ultraviolet),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
                                         Text(
-                                          message.fileName ?? 'Encrypted Photo',
-                                          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                                          message.fileName ?? 'Receiving photo...',
+                                          style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w500),
                                         ),
                                       ],
                                     ),
@@ -278,6 +308,61 @@ class ChatBubble extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                if (message.status == MessageStatus.sending)
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.5),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.65),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else if (message.filePath == null || !File(message.filePath!).existsSync())
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: isMe ? AppColors.white.withValues(alpha: 0.18) : AppColors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const SizedBox(
+                                            width: 28,
+                                            height: 28,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.ultraviolet),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            message.fileName ?? 'Receiving video...',
+                                            style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),

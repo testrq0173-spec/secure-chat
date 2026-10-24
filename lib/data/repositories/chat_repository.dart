@@ -28,6 +28,7 @@ class ChatRepository {
   final Map<String, StreamSubscription> _queueSubscriptions = {};
   final StreamController<Message> _incomingMessageStream = StreamController<Message>.broadcast();
   final Map<String, List<String?>> _chunkBuffers = {};
+  final Map<String, String> _completedMediaFiles = {};
   Timer? _heartbeatTimer;
 
   ChatRepository({
@@ -282,6 +283,8 @@ class ChatRepository {
               final updatedMsg = existingMsg.copyWith(filePath: targetFile.path);
               await _databaseService.saveMessage(updatedMsg);
               _incomingMessageStream.add(updatedMsg);
+            } else {
+              _completedMediaFiles[targetMessageId] = targetFile.path;
             }
           } catch (e) {
             debugPrint('Error reassembling file chunks: $e');
@@ -303,7 +306,7 @@ class ChatRepository {
         expiresAt = DateTime.now().millisecondsSinceEpoch + (contact.disappearingDurationSeconds * 1000);
       }
 
-      // Extract media file data if transferred inline
+      // Extract media file data if transferred inline or resolve from completed chunks
       String? localSavedPath = payload['filePath'] as String?;
       final fileData = payload['fileData'] as String?;
       if (fileData != null) {
@@ -322,6 +325,19 @@ class ChatRepository {
         } catch (e) {
           debugPrint('Error saving incoming media file: $e');
         }
+      } else if (_completedMediaFiles.containsKey(msgId)) {
+        localSavedPath = _completedMediaFiles.remove(msgId);
+      } else {
+        try {
+          final appDir = await getApplicationDocumentsDirectory();
+          final mediaDir = Directory('${appDir.path}/media');
+          if (await mediaDir.exists()) {
+            final files = mediaDir.listSync().whereType<File>().where((f) => p.basenameWithoutExtension(f.path) == msgId);
+            if (files.isNotEmpty) {
+              localSavedPath = files.first.path;
+            }
+          }
+        } catch (_) {}
       }
 
       final message = Message(
@@ -455,10 +471,10 @@ class ChatRepository {
     if (filePath != null && File(filePath).existsSync()) {
       try {
         final bytes = await File(filePath).readAsBytes();
-        if (bytes.length <= 650 * 1024) {
+        if (bytes.length <= 250 * 1024) {
           fileBase64 = base64Encode(bytes);
         } else {
-          const chunkSize = 400 * 1024;
+          const chunkSize = 200 * 1024;
           fileChunks = [];
           for (var i = 0; i < bytes.length; i += chunkSize) {
             final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
@@ -577,7 +593,7 @@ class ChatRepository {
       fileName: fileName,
       fileSize: fileSize,
       mediaDurationMs: mediaDurationMs,
-      status: MessageStatus.sent,
+      status: MessageStatus.sending,
       timestamp: timestamp,
       expiresAt: expiresAt,
       replyToId: replyToId,
@@ -667,9 +683,11 @@ class ChatRepository {
 
       // Mark message delivered
       await _databaseService.updateMessageStatus(messageId, MessageStatus.delivered);
+      _incomingMessageStream.add(message.copyWith(status: MessageStatus.delivered));
     } catch (e) {
       debugPrint('Failed to dispatch packet: $e');
       await _databaseService.updateMessageStatus(messageId, MessageStatus.failed);
+      _incomingMessageStream.add(message.copyWith(status: MessageStatus.failed));
     }
 
     return message;

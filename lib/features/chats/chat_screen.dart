@@ -109,17 +109,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     int? mediaDurationMs,
   }) async {
     final chatRepo = ref.read(chatRepositoryProvider);
-    try {
-      await chatRepo.sendMessage(
-        conversationId: widget.conversationId,
-        content: '',
-        type: type,
-        filePath: filePath,
-        fileName: fileName,
-        fileSize: fileSize,
-        mediaDurationMs: mediaDurationMs,
-      );
-    } catch (e) {
+    chatRepo.sendMessage(
+      conversationId: widget.conversationId,
+      content: '',
+      type: type,
+      filePath: filePath,
+      fileName: fileName,
+      fileSize: fileSize,
+      mediaDurationMs: mediaDurationMs,
+    ).then((_) {
+      if (mounted) {
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+        ref.read(conversationsProvider.notifier).loadConversations();
+      }
+    }).catchError((e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -127,11 +130,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             backgroundColor: AppColors.error,
           ),
         );
+        ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
       }
+    });
+
+    // Immediately reload messages to show thumbnail with loading spinner on top!
+    await Future.delayed(const Duration(milliseconds: 60));
+    if (mounted) {
+      ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+      ref.read(conversationsProvider.notifier).loadConversations();
+      _scrollToBottom();
     }
-    ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
-    ref.read(conversationsProvider.notifier).loadConversations();
-    _scrollToBottom();
   }
 
   void _showMessageActions(Message message, bool isMe) {

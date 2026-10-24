@@ -177,9 +177,9 @@ class _ChatComposerState extends State<ChatComposer> {
     try {
       final xfile = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 75,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 70,
       );
       if (xfile == null) return;
 
@@ -206,12 +206,25 @@ class _ChatComposerState extends State<ChatComposer> {
     try {
       final xvideo = await _imagePicker.pickVideo(
         source: source,
-        maxDuration: const Duration(minutes: 5),
+        maxDuration: const Duration(seconds: 45),
       );
       if (xvideo == null) return;
 
       final file = File(xvideo.path);
       final size = await file.length();
+
+      if (size > 12 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Video is too large (max 12 MB). Please choose a shorter clip.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
       final fileName = xvideo.name.isNotEmpty ? xvideo.name : 'Video_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
       widget.onSendMedia(

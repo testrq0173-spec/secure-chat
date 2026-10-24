@@ -125,6 +125,8 @@ void onStart(ServiceInstance service) async {
 
   bool isAppInForeground = false;
   final Map<String, StreamSubscription> activeSubscriptions = {};
+  final Map<String, List<String?>> chunkBuffers = {};
+  final Map<String, String> completedMediaFiles = {};
 
   service.on('setAppForeground').listen((event) {
     if (event != null && event['isForeground'] is bool) {
@@ -216,6 +218,51 @@ void onStart(ServiceInstance service) async {
         return;
       }
 
+      if (action == 'file_chunk') {
+        final targetMessageId = payload['targetMessageId'] as String;
+        final chunkIndex = payload['chunkIndex'] as int;
+        final totalChunks = payload['totalChunks'] as int;
+        final chunkData = payload['chunkData'] as String;
+        final fName = payload['fileName'] as String? ?? 'media_$targetMessageId.dat';
+
+        chunkBuffers.putIfAbsent(targetMessageId, () => List<String?>.filled(totalChunks, null));
+        chunkBuffers[targetMessageId]![chunkIndex] = chunkData;
+
+        if (!chunkBuffers[targetMessageId]!.contains(null)) {
+          final fullBase64 = chunkBuffers[targetMessageId]!.join();
+          chunkBuffers.remove(targetMessageId);
+
+          try {
+            final fileBytes = base64Decode(fullBase64);
+            final appDir = await getApplicationDocumentsDirectory();
+            final mediaDir = Directory('${appDir.path}/media');
+            if (!await mediaDir.exists()) {
+              await mediaDir.create(recursive: true);
+            }
+            final ext = p.extension(fName).isNotEmpty ? p.extension(fName) : '.dat';
+            final targetFile = File('${mediaDir.path}/$targetMessageId$ext');
+            await targetFile.writeAsBytes(fileBytes);
+
+            final existingMsg = await dbService.getMessage(targetMessageId);
+            if (existingMsg != null) {
+              await dbService.saveMessage(existingMsg.copyWith(filePath: targetFile.path));
+            } else {
+              completedMediaFiles[targetMessageId] = targetFile.path;
+            }
+          } catch (e) {
+            debugPrint('Background error reassembling file chunks: $e');
+          }
+        }
+
+        await firestore
+            .collection('queues')
+            .doc(contact.receiveQueueId)
+            .collection('packets')
+            .doc(packet.packetId)
+            .delete();
+        return;
+      }
+
       // Normal message
       final msgId = payload['id'] as String? ?? uuid.v4();
       final content = payload['content'] as String? ?? '';
@@ -242,6 +289,19 @@ void onStart(ServiceInstance service) async {
           final targetFile = File('${mediaDir.path}/$msgId$ext');
           await targetFile.writeAsBytes(fileBytes);
           localSavedPath = targetFile.path;
+        } catch (_) {}
+      } else if (completedMediaFiles.containsKey(msgId)) {
+        localSavedPath = completedMediaFiles.remove(msgId);
+      } else {
+        try {
+          final appDir = await getApplicationDocumentsDirectory();
+          final mediaDir = Directory('${appDir.path}/media');
+          if (await mediaDir.exists()) {
+            final files = mediaDir.listSync().whereType<File>().where((f) => p.basenameWithoutExtension(f.path) == msgId);
+            if (files.isNotEmpty) {
+              localSavedPath = files.first.path;
+            }
+          }
         } catch (_) {}
       }
 
