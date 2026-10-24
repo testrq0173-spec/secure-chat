@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/services/background_delivery_service.dart';
 import '../core/services/screen_protector_service.dart';
 import '../core/theme/app_theme.dart';
 import 'providers.dart';
@@ -20,6 +21,10 @@ class _BharosaAppState extends ConsumerState<BharosaApp> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initSecurity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      BackgroundDeliveryService.instance.setAppForeground(true);
+      ref.read(chatRepositoryProvider).startListeningToQueues();
+    });
   }
 
   Future<void> _initSecurity() async {
@@ -38,9 +43,14 @@ class _BharosaAppState extends ConsumerState<BharosaApp> with WidgetsBindingObse
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached || state == AppLifecycleState.hidden) {
       _pausedTime = DateTime.now();
+      BackgroundDeliveryService.instance.setAppForeground(false);
+      BackgroundDeliveryService.instance.reloadQueues();
     } else if (state == AppLifecycleState.resumed) {
+      BackgroundDeliveryService.instance.setAppForeground(true);
+      ref.read(chatRepositoryProvider).startListeningToQueues();
+      ref.read(conversationsProvider.notifier).loadConversations();
       if (_pausedTime != null) {
         final lockState = ref.read(appLockProvider);
         if (lockState.isPinSet) {

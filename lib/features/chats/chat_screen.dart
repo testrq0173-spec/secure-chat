@@ -308,6 +308,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(chatMessagesProvider(widget.conversationId), (previous, next) {
+      _scrollToBottom();
+    });
+
     final messagesAsync = ref.watch(chatMessagesProvider(widget.conversationId));
 
     if (_isLoading) {

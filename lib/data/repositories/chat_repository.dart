@@ -27,6 +27,7 @@ class ChatRepository {
 
   final Map<String, StreamSubscription> _queueSubscriptions = {};
   final StreamController<Message> _incomingMessageStream = StreamController<Message>.broadcast();
+  Timer? _heartbeatTimer;
 
   ChatRepository({
     required IRelayService relayService,
@@ -60,6 +61,15 @@ class ChatRepository {
         await listenToInviteQueue(inboxQueueId);
       } catch (_) {}
     }
+
+    // Start 3-second heartbeat sync for guaranteed zero-delay delivery
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      final activeContacts = await _databaseService.getAllContacts();
+      for (final c in activeContacts) {
+        await _drainContactQueue(c);
+      }
+    });
   }
 
   void _listenToContactQueue(Contact contact) {
@@ -69,6 +79,18 @@ class ChatRepository {
       await _processIncomingPacket(contact, packet);
     });
     _queueSubscriptions[contact.receiveQueueId] = sub;
+
+    // Immediately drain pending packets for instant message receipt
+    _drainContactQueue(contact);
+  }
+
+  Future<void> _drainContactQueue(Contact contact) async {
+    try {
+      final packets = await _relayService.fetchPackets(contact.receiveQueueId);
+      for (final packet in packets) {
+        await _processIncomingPacket(contact, packet);
+      }
+    } catch (_) {}
   }
 
   /// Listens to a pending invite inbox queue for incoming handshakes
@@ -79,6 +101,18 @@ class ChatRepository {
       await _processIncomingInvitePacket(inboxQueueId, packet);
     });
     _queueSubscriptions[inboxQueueId] = sub;
+
+    // Immediately drain pending packets
+    _drainInviteQueue(inboxQueueId);
+  }
+
+  Future<void> _drainInviteQueue(String inboxQueueId) async {
+    try {
+      final packets = await _relayService.fetchPackets(inboxQueueId);
+      for (final packet in packets) {
+        await _processIncomingInvitePacket(inboxQueueId, packet);
+      }
+    } catch (_) {}
   }
 
   Future<void> _processIncomingInvitePacket(String inboxQueueId, QueuePacket packet) async {
@@ -792,6 +826,7 @@ class ChatRepository {
   }
 
   void dispose() {
+    _heartbeatTimer?.cancel();
     for (final sub in _queueSubscriptions.values) {
       sub.cancel();
     }
