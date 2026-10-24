@@ -21,9 +21,19 @@ class NotificationService {
       },
     );
 
-    // Request Android 13+ notification permission
-    final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    await androidImpl?.requestNotificationsPermission();
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'bharosa_messages',
+      'Encrypted Messages',
+      description: 'Real-time notifications for incoming encrypted messages',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    try {
+      final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.createNotificationChannel(channel);
+    } catch (_) {}
 
     _isInitialized = true;
   }
@@ -31,6 +41,9 @@ class NotificationService {
   Future<void> requestPermission() async {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
+      if (!_isInitialized) {
+        await initialize();
+      }
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await androidImpl?.requestNotificationsPermission();
     } catch (_) {}
