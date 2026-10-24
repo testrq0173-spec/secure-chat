@@ -1,8 +1,12 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/double_ratchet.dart';
 import '../../core/storage/secure_storage_service.dart';
@@ -47,6 +51,18 @@ class ChatRepository {
       await _processIncomingPacket(contact, packet);
     });
     _queueSubscriptions[contact.receiveQueueId] = sub;
+  }
+
+  /// Ensures a specific contact or conversation queue is actively listened to
+  Future<void> ensureListening(String conversationId) async {
+    final contact = await _databaseService.getContact(conversationId);
+    if (contact != null) {
+      _listenToContactQueue(contact);
+    }
+  }
+
+  void listenToContact(Contact contact) {
+    _listenToContactQueue(contact);
   }
 
   /// Process an incoming encrypted packet from a peer's queue
@@ -109,6 +125,27 @@ class ChatRepository {
         expiresAt = DateTime.now().millisecondsSinceEpoch + (contact.disappearingDurationSeconds * 1000);
       }
 
+      // Extract media file data if transferred inline
+      String? localSavedPath = payload['filePath'] as String?;
+      final fileData = payload['fileData'] as String?;
+      if (fileData != null) {
+        try {
+          final fileBytes = base64Decode(fileData);
+          final appDir = await getApplicationDocumentsDirectory();
+          final mediaDir = Directory('${appDir.path}/media');
+          if (!await mediaDir.exists()) {
+            await mediaDir.create(recursive: true);
+          }
+          final originalName = payload['fileName'] as String? ?? 'media_$msgId.dat';
+          final ext = p.extension(originalName).isNotEmpty ? p.extension(originalName) : '.dat';
+          final targetFile = File('${mediaDir.path}/$msgId$ext');
+          await targetFile.writeAsBytes(fileBytes);
+          localSavedPath = targetFile.path;
+        } catch (e) {
+          debugPrint('Error saving incoming media file: $e');
+        }
+      }
+
       final message = Message(
         id: msgId,
         conversationId: contact.id,
@@ -116,7 +153,7 @@ class ChatRepository {
         senderName: contact.displayName,
         type: type,
         content: content,
-        filePath: payload['filePath'] as String?,
+        filePath: localSavedPath,
         fileName: payload['fileName'] as String?,
         fileSize: payload['fileSize'] as int?,
         mediaDurationMs: payload['mediaDurationMs'] as int?,
@@ -143,6 +180,37 @@ class ChatRepository {
       }
 
       _incomingMessageStream.add(message);
+
+      // Trigger Push Notification
+      try {
+        String notificationBody = content;
+        if (notificationBody.isEmpty) {
+          switch (type) {
+            case MessageType.voice:
+              notificationBody = '🎤 Voice message';
+              break;
+            case MessageType.image:
+              notificationBody = '📷 Photo';
+              break;
+            case MessageType.video:
+              notificationBody = '🎥 Video';
+              break;
+            case MessageType.file:
+              notificationBody = '📄 ${payload['fileName'] ?? 'Document'}';
+              break;
+            default:
+              notificationBody = '🔒 New encrypted message';
+          }
+        }
+
+        await NotificationService.instance.showMessageNotification(
+          title: contact.displayName,
+          body: notificationBody,
+          conversationId: contact.id,
+        );
+      } catch (e) {
+        debugPrint('Notification trigger warning: $e');
+      }
 
       // 7. Instant packet deletion from Blinded Postbox!
       await _relayService.deletePacket(
@@ -203,6 +271,19 @@ class ChatRepository {
       return noteMessage;
     }
 
+    // Prepare inline media payload if file exists and <= 750KB
+    String? fileBase64;
+    if (filePath != null && File(filePath).existsSync()) {
+      try {
+        final bytes = await File(filePath).readAsBytes();
+        if (bytes.length <= 750 * 1024) {
+          fileBase64 = base64Encode(bytes);
+        }
+      } catch (e) {
+        debugPrint('File read error for inline encryption: $e');
+      }
+    }
+
     // Check if this is a group conversation
     final group = await _databaseService.getGroup(conversationId);
     if (group != null) {
@@ -256,6 +337,7 @@ class ChatRepository {
               'fileName': fileName,
               'fileSize': fileSize,
               'mediaDurationMs': mediaDurationMs,
+              'fileData': fileBase64,
               'timestamp': timestamp,
               'replyToId': replyToId,
               'replyToText': replyToText,
@@ -335,11 +417,13 @@ class ChatRepository {
           'fileName': fileName,
           'fileSize': fileSize,
           'mediaDurationMs': mediaDurationMs,
+          'fileData': fileBase64,
           'timestamp': timestamp,
           'replyToId': replyToId,
           'replyToText': replyToText,
           'replyToSender': replyToSender,
         };
+
 
         final plaintextBytes = CryptoUtils.utf8Bytes(jsonEncode(payload));
         final encryptedRatchetPacket = await ratchet.encrypt(plaintextBytes);

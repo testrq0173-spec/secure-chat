@@ -30,6 +30,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _loadConversation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatRepositoryProvider).ensureListening(widget.conversationId);
+    });
   }
 
   @override

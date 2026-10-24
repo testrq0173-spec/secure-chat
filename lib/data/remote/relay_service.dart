@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:uuid/uuid.dart';
 
 /// Unilateral Queue Packet payload
@@ -153,3 +155,213 @@ class LocalBlindedRelayService implements IRelayService {
     return _streamControllers[queueId]!.stream;
   }
 }
+
+/// Cloud Firestore implementation of the Blinded Relay Postbox.
+/// Provides real-time instant cross-device delivery via Firestore snapshots.
+/// Zero-knowledge: ciphertext payloads are immediately deleted upon delivery.
+class FirestoreBlindedRelayService implements IRelayService {
+  static final FirestoreBlindedRelayService _instance = FirestoreBlindedRelayService._internal();
+  factory FirestoreBlindedRelayService() => _instance;
+  FirestoreBlindedRelayService._internal();
+
+  final _uuid = const Uuid();
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+
+  @override
+  Future<void> registerQueue({
+    required String queueId,
+    required String ownerPublicKey,
+    String? fcmToken,
+  }) async {
+    try {
+      await _firestore.collection('queues').doc(queueId).set({
+        'queueId': queueId,
+        'ownerPublicKey': ownerPublicKey,
+        'fcmToken': fcmToken,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      // Ignored if offline or rules apply
+    }
+  }
+
+  @override
+  Future<void> depositPacket({
+    required String queueId,
+    required String encryptedPayload,
+  }) async {
+    final packetId = _uuid.v4();
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await _firestore
+        .collection('queues')
+        .doc(queueId)
+        .collection('packets')
+        .doc(packetId)
+        .set({
+      'packetId': packetId,
+      'queueId': queueId,
+      'encryptedPayload': encryptedPayload,
+      'timestamp': now,
+      'size': encryptedPayload.length,
+    });
+  }
+
+  @override
+  Future<List<QueuePacket>> fetchPackets(String queueId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('queues')
+          .doc(queueId)
+          .collection('packets')
+          .orderBy('timestamp')
+          .get();
+
+      return snapshot.docs
+          .map((doc) => QueuePacket.fromMap(doc.data()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> deletePacket({
+    required String queueId,
+    required String packetId,
+  }) async {
+    try {
+      await _firestore
+          .collection('queues')
+          .doc(queueId)
+          .collection('packets')
+          .doc(packetId)
+          .delete();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> publishInvite({
+    required String inviteId,
+    required Map<String, dynamic> inviteData,
+  }) async {
+    await _firestore.collection('invites').doc(inviteId).set(inviteData);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchInvite(String inviteId) async {
+    try {
+      final doc = await _firestore.collection('invites').doc(inviteId).get();
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> consumeInvite(String inviteId) async {
+    try {
+      await _firestore.collection('invites').doc(inviteId).delete();
+    } catch (_) {}
+  }
+
+  @override
+  Stream<QueuePacket> listenToQueue(String queueId) {
+    return _firestore
+        .collection('queues')
+        .doc(queueId)
+        .collection('packets')
+        .snapshots()
+        .expand((snapshot) => snapshot.docChanges)
+        .where((change) => change.type == DocumentChangeType.added && change.doc.data() != null)
+        .map((change) => QueuePacket.fromMap(change.doc.data()!));
+  }
+}
+
+/// Hybrid Relay Service automatically selecting Cloud Firestore when connected,
+/// with instant fallback to Local in-memory relay for unit tests / offline runs.
+class HybridRelayService implements IRelayService {
+  static final HybridRelayService _instance = HybridRelayService._internal();
+  factory HybridRelayService() => _instance;
+  HybridRelayService._internal();
+
+  final LocalBlindedRelayService _local = LocalBlindedRelayService();
+  final FirestoreBlindedRelayService _firestore = FirestoreBlindedRelayService();
+
+  bool get isFirebaseAvailable {
+    try {
+      return Firebase.apps.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  IRelayService get _active => isFirebaseAvailable ? _firestore : _local;
+
+  @override
+  Future<void> registerQueue({
+    required String queueId,
+    required String ownerPublicKey,
+    String? fcmToken,
+  }) {
+    return _active.registerQueue(
+      queueId: queueId,
+      ownerPublicKey: ownerPublicKey,
+      fcmToken: fcmToken,
+    );
+  }
+
+  @override
+  Future<void> depositPacket({
+    required String queueId,
+    required String encryptedPayload,
+  }) {
+    return _active.depositPacket(
+      queueId: queueId,
+      encryptedPayload: encryptedPayload,
+    );
+  }
+
+  @override
+  Future<List<QueuePacket>> fetchPackets(String queueId) {
+    return _active.fetchPackets(queueId);
+  }
+
+  @override
+  Future<void> deletePacket({
+    required String queueId,
+    required String packetId,
+  }) {
+    return _active.deletePacket(
+      queueId: queueId,
+      packetId: packetId,
+    );
+  }
+
+  @override
+  Future<void> publishInvite({
+    required String inviteId,
+    required Map<String, dynamic> inviteData,
+  }) {
+    return _active.publishInvite(
+      inviteId: inviteId,
+      inviteData: inviteData,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchInvite(String inviteId) {
+    return _active.fetchInvite(inviteId);
+  }
+
+  @override
+  Future<void> consumeInvite(String inviteId) {
+    return _active.consumeInvite(inviteId);
+  }
+
+  @override
+  Stream<QueuePacket> listenToQueue(String queueId) {
+    return _active.listenToQueue(queueId);
+  }
+}
+

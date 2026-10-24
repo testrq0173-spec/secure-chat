@@ -19,7 +19,7 @@ final databaseServiceProvider = Provider<DatabaseService>((ref) {
 });
 
 final relayServiceProvider = Provider<IRelayService>((ref) {
-  return LocalBlindedRelayService();
+  return HybridRelayService();
 });
 
 // --- Repositories ---

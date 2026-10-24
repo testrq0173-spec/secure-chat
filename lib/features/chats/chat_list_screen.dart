@@ -21,6 +21,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   bool _isSearching = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatRepositoryProvider).startListeningToQueues();
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
