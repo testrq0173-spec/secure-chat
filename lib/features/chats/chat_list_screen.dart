@@ -47,6 +47,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     final conversationsAsync = ref.watch(conversationsProvider);
+    final pendingRequestsAsync = ref.watch(pendingRequestsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -119,6 +120,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
             ),
           ),
 
+          // Requests Banner (All Chats & Direct)
+          if ((_selectedFilterIndex == 0 || _selectedFilterIndex == 1) &&
+              pendingRequestsAsync.value != null &&
+              pendingRequestsAsync.value!.isNotEmpty)
+            _buildPendingRequestsBanner(pendingRequestsAsync.value!.length),
+
           // Conversation List
           Expanded(
             child: conversationsAsync.when(
@@ -127,6 +134,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               ),
               error: (err, _) => Center(child: Text('Error: $err')),
               data: (conversations) {
+
                 // Apply Search Filter
                 var list = conversations;
                 final query = _searchController.text.trim().toLowerCase();
@@ -202,7 +210,72 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     );
   }
 
+  Widget _buildPendingRequestsBanner(int count) {
+
+    return GestureDetector(
+      onTap: () async {
+        await context.push('/requests');
+        ref.invalidate(pendingRequestsProvider);
+        ref.read(conversationsProvider.notifier).loadConversations();
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.ultraviolet.withValues(alpha: 0.25), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.ultraviolet.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.lavender,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.person_add_rounded, color: AppColors.ultraviolet, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Row(
+                children: [
+                  Text(
+                    'Requests ($count)',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      color: AppColors.ultraviolet,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildConversationTile(Conversation conv) {
+
     return InkWell(
       onTap: () => context.push('/chat/${conv.id}'),
       onLongPress: () => _showConversationOptions(conv),

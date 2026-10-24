@@ -13,6 +13,7 @@ class Contact {
   final bool isMuted;
   final bool isBlocked;
   final bool isReusableAddress;
+  final String requestStatus; // 'approved', 'pending_incoming', 'pending_outgoing', 'blocked'
   final int createdAt;
 
   Contact({
@@ -30,6 +31,7 @@ class Contact {
     this.isMuted = false,
     this.isBlocked = false,
     this.isReusableAddress = false,
+    this.requestStatus = 'approved',
     required this.createdAt,
   });
 
@@ -48,6 +50,7 @@ class Contact {
     bool? isMuted,
     bool? isBlocked,
     bool? isReusableAddress,
+    String? requestStatus,
     int? createdAt,
   }) {
     return Contact(
@@ -65,6 +68,7 @@ class Contact {
       isMuted: isMuted ?? this.isMuted,
       isBlocked: isBlocked ?? this.isBlocked,
       isReusableAddress: isReusableAddress ?? this.isReusableAddress,
+      requestStatus: requestStatus ?? this.requestStatus,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -85,6 +89,7 @@ class Contact {
       'isMuted': isMuted ? 1 : 0,
       'isBlocked': isBlocked ? 1 : 0,
       'isReusableAddress': isReusableAddress ? 1 : 0,
+      'requestStatus': requestStatus,
       'createdAt': createdAt,
     };
   }
@@ -105,6 +110,7 @@ class Contact {
       isMuted: (map['isMuted'] as int? ?? 0) == 1,
       isBlocked: (map['isBlocked'] as int? ?? 0) == 1,
       isReusableAddress: (map['isReusableAddress'] as int? ?? 0) == 1,
+      requestStatus: map['requestStatus'] as String? ?? 'approved',
       createdAt: map['createdAt'] as int,
     );
   }

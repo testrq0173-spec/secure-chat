@@ -16,11 +16,13 @@ import '../models/conversation.dart';
 import '../models/group.dart';
 import '../models/message.dart';
 import '../remote/relay_service.dart';
+import 'connection_repository.dart';
 
 class ChatRepository {
   final IRelayService _relayService;
   final DatabaseService _databaseService;
   final SecureStorageService _secureStorage;
+  final ConnectionRepository? _connectionRepository;
   final _uuid = const Uuid();
 
   final Map<String, StreamSubscription> _queueSubscriptions = {};
@@ -30,17 +32,33 @@ class ChatRepository {
     required IRelayService relayService,
     required DatabaseService databaseService,
     required SecureStorageService secureStorage,
+    ConnectionRepository? connectionRepository,
   })  : _relayService = relayService,
         _databaseService = databaseService,
-        _secureStorage = secureStorage;
+        _secureStorage = secureStorage,
+        _connectionRepository = connectionRepository;
 
   Stream<Message> get onIncomingMessage => _incomingMessageStream.stream;
 
-  /// Initializes listeners for all active contact receiving queues
+  /// Initializes listeners for all active contact receiving queues & pending invite queues
   Future<void> startListeningToQueues() async {
     final contacts = await _databaseService.getAllContacts();
     for (final contact in contacts) {
       _listenToContactQueue(contact);
+    }
+
+    // Restore listeners for all active invite queues
+    final db = await _databaseService.database;
+    final inviteSettings = await db.query(
+      'settings',
+      where: "key LIKE 'pending_invite_%'",
+    );
+    for (final row in inviteSettings) {
+      try {
+        final meta = jsonDecode(row['value'] as String) as Map<String, dynamic>;
+        final inboxQueueId = meta['inboxQueueId'] as String;
+        await listenToInviteQueue(inboxQueueId);
+      } catch (_) {}
     }
   }
 
@@ -51,6 +69,55 @@ class ChatRepository {
       await _processIncomingPacket(contact, packet);
     });
     _queueSubscriptions[contact.receiveQueueId] = sub;
+  }
+
+  /// Listens to a pending invite inbox queue for incoming handshakes
+  Future<void> listenToInviteQueue(String inboxQueueId) async {
+    if (_queueSubscriptions.containsKey(inboxQueueId)) return;
+
+    final sub = _relayService.listenToQueue(inboxQueueId).listen((packet) async {
+      await _processIncomingInvitePacket(inboxQueueId, packet);
+    });
+    _queueSubscriptions[inboxQueueId] = sub;
+  }
+
+  Future<void> _processIncomingInvitePacket(String inboxQueueId, QueuePacket packet) async {
+    try {
+      // 1. Try decoding as Handshake envelope
+      try {
+        final outerBytes = base64Decode(packet.encryptedPayload);
+        final outerJsonStr = utf8.decode(outerBytes);
+        final outerEnvelope = jsonDecode(outerJsonStr) as Map<String, dynamic>;
+        if (outerEnvelope['action'] == 'handshake') {
+          final contact = await _connectionRepository?.processIncomingHandshake(
+            inboxQueueId: inboxQueueId,
+            packet: packet,
+          );
+          if (contact != null) {
+            _listenToContactQueue(contact);
+            _incomingMessageStream.add(Message(
+              id: _uuid.v4(),
+              conversationId: contact.id,
+              senderId: contact.id,
+              senderName: contact.displayName,
+              type: MessageType.text,
+              content: 'New connection request',
+              status: MessageStatus.delivered,
+              timestamp: DateTime.now().millisecondsSinceEpoch,
+            ));
+          }
+          return;
+        }
+      } catch (_) {}
+
+      // 2. If contact already exists for this receive queue, process as message
+      final contact = await _databaseService.getContactByReceiveQueue(inboxQueueId);
+      if (contact != null) {
+        await _processIncomingPacket(contact, packet);
+      }
+    } catch (e) {
+      debugPrint('Error processing incoming invite queue packet: $e');
+    }
   }
 
   /// Ensures a specific contact or conversation queue is actively listened to
@@ -64,6 +131,7 @@ class ChatRepository {
   void listenToContact(Contact contact) {
     _listenToContactQueue(contact);
   }
+
 
   /// Process an incoming encrypted packet from a peer's queue
   Future<void> _processIncomingPacket(Contact contact, QueuePacket queuePacket) async {
@@ -110,6 +178,41 @@ class ChatRepository {
           timestamp: DateTime.now().millisecondsSinceEpoch,
         );
         await _databaseService.saveReaction(reaction);
+        await _relayService.deletePacket(queueId: contact.receiveQueueId, packetId: queuePacket.packetId);
+        return;
+      }
+
+      if (action == 'request_approved') {
+        await _databaseService.approveContact(contact.id);
+        final conv = await _databaseService.getConversation(contact.id);
+        if (conv != null) {
+          await _databaseService.saveConversation(conv.copyWith(
+            requestStatus: 'approved',
+            lastMessageText: 'Request approved! You can now chat.',
+            lastMessageTime: DateTime.now().millisecondsSinceEpoch,
+          ));
+        }
+        await _relayService.deletePacket(queueId: contact.receiveQueueId, packetId: queuePacket.packetId);
+        await NotificationService.instance.showMessageNotification(
+          title: contact.displayName,
+          body: 'Accepted your connection request',
+          conversationId: contact.id,
+        );
+        _incomingMessageStream.add(Message(
+          id: _uuid.v4(),
+          conversationId: contact.id,
+          senderId: contact.id,
+          senderName: contact.displayName,
+          type: MessageType.text,
+          content: '🔒 Connection request accepted! You can now chat.',
+          status: MessageStatus.delivered,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        ));
+        return;
+      }
+
+      if (action == 'request_denied') {
+        await _databaseService.blockContact(contact.id);
         await _relayService.deletePacket(queueId: contact.receiveQueueId, packetId: queuePacket.packetId);
         return;
       }
@@ -364,6 +467,17 @@ class ChatRepository {
       throw StateError('Cannot send message: Contact not found');
     }
 
+    if (contact.isBlocked || contact.requestStatus == 'blocked') {
+      throw StateError('Cannot send message: Contact is blocked.');
+    }
+
+    if (contact.requestStatus == 'pending_outgoing') {
+      final sentCount = await _databaseService.getSentMessagesCount(conversationId);
+      if (sentCount >= 1) {
+        throw StateError('Waiting for recipient to approve request. You can send more messages once approved.');
+      }
+    }
+
     int? expiresAt;
     if (contact.disappearingDurationSeconds > 0) {
       expiresAt = timestamp + (contact.disappearingDurationSeconds * 1000);
@@ -609,6 +723,74 @@ class ChatRepository {
     return conv;
   }
 
+  Future<void> approveConnection(String conversationId) async {
+    await _databaseService.approveContact(conversationId);
+    final contact = await _databaseService.getContact(conversationId);
+    if (contact != null && contact.ratchetStateJson != null) {
+      try {
+        final ratchet = DoubleRatchetState.deserialize(contact.ratchetStateJson!);
+        final payload = {
+          'id': _uuid.v4(),
+          'action': 'request_approved',
+          'type': 'text',
+          'content': '🔒 Connection request accepted',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        };
+        final plaintextBytes = CryptoUtils.utf8Bytes(jsonEncode(payload));
+        final encryptedPacket = await ratchet.encrypt(plaintextBytes);
+        final updatedRatchetJson = await ratchet.serialize();
+        await _databaseService.saveContact(contact.copyWith(ratchetStateJson: updatedRatchetJson));
+        await _relayService.depositPacket(
+          queueId: contact.sendQueueId,
+          encryptedPayload: base64Encode(encryptedPacket.toCombinedBytes()),
+        );
+      } catch (e) {
+        debugPrint('Failed to dispatch approval packet: $e');
+      }
+    }
+    _incomingMessageStream.add(Message(
+      id: _uuid.v4(),
+      conversationId: conversationId,
+      senderId: 'self',
+      senderName: 'Me',
+      type: MessageType.text,
+      content: '🔒 Connection request accepted',
+      status: MessageStatus.delivered,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    ));
+  }
+
+  Future<void> denyConnection(String conversationId) async {
+    await _databaseService.blockContact(conversationId);
+    final contact = await _databaseService.getContact(conversationId);
+    if (contact != null && contact.ratchetStateJson != null) {
+      try {
+        final ratchet = DoubleRatchetState.deserialize(contact.ratchetStateJson!);
+        final payload = {
+          'id': _uuid.v4(),
+          'action': 'request_denied',
+          'type': 'text',
+          'content': 'Connection request declined',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        };
+        final plaintextBytes = CryptoUtils.utf8Bytes(jsonEncode(payload));
+        final encryptedPacket = await ratchet.encrypt(plaintextBytes);
+        final updatedRatchetJson = await ratchet.serialize();
+        await _databaseService.saveContact(contact.copyWith(ratchetStateJson: updatedRatchetJson));
+        await _relayService.depositPacket(
+          queueId: contact.sendQueueId,
+          encryptedPayload: base64Encode(encryptedPacket.toCombinedBytes()),
+        );
+      } catch (e) {
+        debugPrint('Failed to dispatch deny packet: $e');
+      }
+    }
+  }
+
+  Future<void> unblockConnection(String contactId) async {
+    await _databaseService.unblockContact(contactId);
+  }
+
   void dispose() {
     for (final sub in _queueSubscriptions.values) {
       sub.cancel();
@@ -617,3 +799,4 @@ class ChatRepository {
     _incomingMessageStream.close();
   }
 }
+

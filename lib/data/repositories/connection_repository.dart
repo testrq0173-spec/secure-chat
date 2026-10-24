@@ -1,6 +1,8 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/crypto/crypto_engine.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/double_ratchet.dart';
@@ -83,6 +85,13 @@ class ConnectionRepository {
 
   /// Processes a scanned/pasted invite and initiates connection (Bob)
   Future<Contact> connectWithInvite(ConnectionInvite invite) async {
+    // 1. Check if already connected with this user
+    final existing = await _databaseService.getContactByPeerKey(invite.inviterIdentityKey) ??
+                     await _databaseService.getContactBySendQueue(invite.inboxQueueId);
+    if (existing != null) {
+      return existing;
+    }
+
     final activeProfileId = await _secureStorage.getActiveProfileId();
     final profile = activeProfileId != null ? await _databaseService.getProfile(activeProfileId) : null;
     final displayName = profile?.displayName ?? 'Anonymous';
@@ -129,6 +138,7 @@ class ConnectionRepository {
       receiveQueueId: bobReceiveQueueId,
       peerPublicKey: invite.inviterIdentityKey,
       ratchetStateJson: ratchetJson,
+      requestStatus: 'pending_outgoing', // Waiting for recipient approval!
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
 
@@ -140,36 +150,40 @@ class ConnectionRepository {
       type: ConversationType.direct,
       title: invite.inviterDisplayName,
       contactId: contactId,
-      lastMessageText: '🔒 End-to-end encrypted connection established',
+      lastMessageText: 'Connection request sent',
       lastMessageTime: DateTime.now().millisecondsSinceEpoch,
       isVerified: false,
+      requestStatus: 'pending_outgoing',
     );
     await _databaseService.saveConversation(conversation);
 
     // Package Handshake response to send to Alice
-    final handshake = ConnectionHandshake(
-      responderDisplayName: displayName,
-      responderIdentityKey: base64Encode(bobDhPub),
-      responderDhKey: base64Encode(bobDhPub),
-      responderInboxQueueId: bobReceiveQueueId,
-      initialSecurityCode: safetyCode,
+    final handshakePayload = {
+      'action': 'handshake',
+      'responderDisplayName': displayName,
+      'responderIdentityKey': base64Encode(bobDhPub),
+      'responderDhKey': base64Encode(bobDhPub),
+      'responderInboxQueueId': bobReceiveQueueId,
+      'initialSecurityCode': safetyCode,
+    };
+
+    final encryptedHandshakeBytes = await CryptoEngine.encryptAead(
+      plaintext: CryptoUtils.utf8Bytes(jsonEncode(handshakePayload)),
+      symmetricKey: sharedSecret,
+      associatedData: CryptoUtils.utf8Bytes('Bharosa-Handshake'),
     );
 
-    final handshakeJson = jsonEncode(handshake.toJson());
-    final queueTransportKey = QueueCrypto.deriveQueueEncryptionKey(sharedSecret, invite.inboxQueueId);
-
-    final packet = await QueueCrypto.sealQueuePacket(
-      packetId: _uuid.v4(),
-      queueId: invite.inboxQueueId,
-      innerCiphertext: CryptoUtils.utf8Bytes(handshakeJson),
-      queueTransportKey: queueTransportKey,
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-    );
+    final outerEnvelope = {
+      'action': 'handshake',
+      'responderDhKey': base64Encode(bobDhPub),
+      'ciphertext': base64Encode(encryptedHandshakeBytes),
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
 
     // Deposit packet in Alice's inbox queue
     await _relayService.depositPacket(
       queueId: invite.inboxQueueId,
-      encryptedPayload: packet['encryptedPayload'] as String,
+      encryptedPayload: base64Encode(CryptoUtils.utf8Bytes(jsonEncode(outerEnvelope))),
     );
 
     // Consume one-time invite
@@ -201,79 +215,102 @@ class ConnectionRepository {
       publicKeyBytes: aliceDhPub,
     );
 
-    // In a two-party handshake, decrypt using initial DH
-    // Let's decode inner payload
-    String innerHandshakeStr;
     try {
-      // Decode outer packet
-      final outerCiphertext = base64Decode(packet.encryptedPayload);
-      // Derive queue transport key with peer public key from handshake
-      // Handshake is structured: open packet
-      // In this protocol, handshake packet uses direct DH shared key
-      // Let's try direct parse or fallback
-      innerHandshakeStr = utf8.decode(outerCiphertext);
-    } catch (_) {
-      // If encrypted, decrypt with DH
+      final outerBytes = base64Decode(packet.encryptedPayload);
+      final outerJsonStr = utf8.decode(outerBytes);
+      final outerEnvelope = jsonDecode(outerJsonStr) as Map<String, dynamic>;
+
+      if (outerEnvelope['action'] != 'handshake') {
+        return null;
+      }
+
+      final bobDhPub = base64Decode(outerEnvelope['responderDhKey'] as String);
+      final ciphertext = base64Decode(outerEnvelope['ciphertext'] as String);
+
+      final sharedSecret = await CryptoEngine.diffieHellman(
+        ourKeyPair: aliceDhPair,
+        theirPublicKeyBytes: bobDhPub,
+      );
+
+      final decryptedBytes = await CryptoEngine.decryptAead(
+        payload: ciphertext,
+        symmetricKey: sharedSecret,
+        associatedData: CryptoUtils.utf8Bytes('Bharosa-Handshake'),
+      );
+
+
+      final handshakePayload = jsonDecode(utf8.decode(decryptedBytes)) as Map<String, dynamic>;
+      final bobDisplayName = handshakePayload['responderDisplayName'] as String;
+      final bobReceiveQueueId = handshakePayload['responderInboxQueueId'] as String;
+      final safetyCode = SafetyNumber.computeNumericCode(aliceDhPub, bobDhPub);
+
+      // Check if Alice already has Bob
+      final existingContact = await _databaseService.getContactByPeerKey(base64Encode(bobDhPub)) ??
+                              await _databaseService.getContactBySendQueue(bobReceiveQueueId);
+      if (existingContact != null) {
+        await _relayService.deletePacket(queueId: inboxQueueId, packetId: packet.packetId);
+        return existingContact;
+      }
+
+      // Alice initializes Double Ratchet symmetrically with Bob's public key
+      final aliceRatchet = await DoubleRatchetState.initBob(
+        sharedMasterKey: sharedSecret,
+        bobDhKeyPair: aliceDhPair,
+        bobDhPublicKey: aliceDhPub,
+        peerDhPublicKey: bobDhPub,
+      );
+      final ratchetJson = await aliceRatchet.serialize();
+
+      final activeProfileId = await _secureStorage.getActiveProfileId();
+      final contactId = _uuid.v4();
+
+      final contact = Contact(
+        id: contactId,
+        profileId: activeProfileId ?? 'default',
+        displayName: bobDisplayName,
+        isVerified: false,
+        securityCode: safetyCode,
+        sendQueueId: bobReceiveQueueId,
+        receiveQueueId: inboxQueueId,
+        peerPublicKey: base64Encode(bobDhPub),
+        ratchetStateJson: ratchetJson,
+        requestStatus: 'pending_incoming', // Needs User B approval!
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      );
+
+      await _databaseService.saveContact(contact);
+
+      final conversation = Conversation(
+        id: contactId,
+        type: ConversationType.direct,
+        title: bobDisplayName,
+        contactId: contactId,
+        lastMessageText: 'New connection request',
+        lastMessageTime: DateTime.now().millisecondsSinceEpoch,
+        isVerified: false,
+        requestStatus: 'pending_incoming',
+      );
+      await _databaseService.saveConversation(conversation);
+
+      // Acknowledge and delete packet from relay
+      await _relayService.deletePacket(queueId: inboxQueueId, packetId: packet.packetId);
+
+      // Trigger Push Notification for User B
+      try {
+        await NotificationService.instance.showMessageNotification(
+          title: 'New Connection Request',
+          body: '$bobDisplayName wants to connect with you.',
+          conversationId: contactId,
+        );
+      } catch (_) {}
+
+      return contact;
+    } catch (e) {
+      debugPrint('Error processing incoming handshake: $e');
       return null;
     }
-
-    final handshake = ConnectionHandshake.fromJson(
-      jsonDecode(innerHandshakeStr) as Map<String, dynamic>,
-    );
-
-    final bobDhPub = base64Decode(handshake.responderDhKey);
-    final sharedSecret = await CryptoEngine.diffieHellman(
-      ourKeyPair: aliceDhPair,
-      theirPublicKeyBytes: bobDhPub,
-    );
-
-    // Alice initializes her Double Ratchet symmetrically with Bob's public key
-    final aliceRatchet = await DoubleRatchetState.initBob(
-      sharedMasterKey: sharedSecret,
-      bobDhKeyPair: aliceDhPair,
-      bobDhPublicKey: aliceDhPub,
-      peerDhPublicKey: bobDhPub,
-    );
-    final ratchetJson = await aliceRatchet.serialize();
-
-    final safetyCode = SafetyNumber.computeNumericCode(aliceDhPub, bobDhPub);
-    final activeProfileId = await _secureStorage.getActiveProfileId();
-
-    final contactId = _uuid.v4();
-    final contact = Contact(
-      id: contactId,
-      profileId: activeProfileId ?? 'default',
-      displayName: handshake.responderDisplayName,
-      isVerified: false,
-      securityCode: safetyCode,
-      sendQueueId: handshake.responderInboxQueueId,
-      receiveQueueId: inboxQueueId,
-      peerPublicKey: handshake.responderIdentityKey,
-      ratchetStateJson: ratchetJson,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-    );
-
-    await _databaseService.saveContact(contact);
-
-    final conversation = Conversation(
-      id: contactId,
-      type: ConversationType.direct,
-      title: handshake.responderDisplayName,
-      contactId: contactId,
-      lastMessageText: '🔒 End-to-end encrypted connection established',
-      lastMessageTime: DateTime.now().millisecondsSinceEpoch,
-      isVerified: false,
-    );
-    await _databaseService.saveConversation(conversation);
-
-    // Clean up pending invite key
-    await db.delete('settings', where: 'key = ?', whereArgs: ['pending_invite_$inboxQueueId']);
-
-    // Acknowledge and delete packet from relay
-    await _relayService.deletePacket(queueId: inboxQueueId, packetId: packet.packetId);
-
-    return contact;
   }
+
 
   /// Mark a contact as verified after matching security numbers (Section 5 & 11)
   Future<void> verifyContact(String contactId) async {

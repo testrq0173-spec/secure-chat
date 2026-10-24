@@ -278,7 +278,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             const SizedBox(height: 24),
 
+            _sectionHeader('PRIVACY & CONTACTS'),
+            _buildContainer([
+              ListTile(
+                leading: const Icon(Icons.block_rounded, color: AppColors.ultraviolet),
+                title: const Text('Blocked Users'),
+                subtitle: const Text('Manage denied and blocked contacts'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
+                onTap: () => context.push('/blocked-users'),
+              ),
+            ]),
+
+            const SizedBox(height: 24),
+
             _sectionHeader('EMERGENCY & STORAGE'),
+
             _buildContainer([
               ListTile(
                 leading: const Icon(Icons.delete_forever_rounded, color: AppColors.error),

@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../data/local/database_service.dart';
+import '../data/models/contact.dart';
 import '../data/models/conversation.dart';
+
 import '../data/models/message.dart';
 import '../data/models/profile.dart';
 import '../data/remote/relay_service.dart';
@@ -43,10 +45,23 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
     relayService: ref.watch(relayServiceProvider),
     databaseService: ref.watch(databaseServiceProvider),
     secureStorage: ref.watch(secureStorageProvider),
+    connectionRepository: ref.watch(connectionRepositoryProvider),
   );
   ref.onDispose(() => repo.dispose());
   return repo;
 });
+
+// --- Pending Requests & Blocked Contacts Providers ---
+final pendingRequestsProvider = FutureProvider<List<Conversation>>((ref) async {
+  final db = ref.watch(databaseServiceProvider);
+  return await db.getPendingRequests();
+});
+
+final blockedContactsProvider = FutureProvider<List<Contact>>((ref) async {
+  final db = ref.watch(databaseServiceProvider);
+  return await db.getBlockedContacts();
+});
+
 
 // --- Active Profile State ---
 final activeProfileProvider = FutureProvider<Profile?>((ref) async {

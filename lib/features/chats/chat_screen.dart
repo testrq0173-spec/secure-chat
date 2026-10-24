@@ -493,20 +493,144 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
 
-          // Composer
-          ChatComposer(
-            replyToSender: _replyingMessage?.senderName,
-            replyToText: _replyingMessage?.content,
-            onCancelReply: () => setState(() => _replyingMessage = null),
-            onSendMessage: _sendMessage,
-            onSendMedia: _sendMedia,
-            onDraftChanged: (draft) {
-              ref.read(databaseServiceProvider).updateConversationDraft(widget.conversationId, draft);
-            },
-          ),
+          // Composer or Approval Bar
+          if (_conversation?.requestStatus == 'pending_incoming')
+            _buildApprovalBar()
+          else if (_conversation?.requestStatus == 'pending_outgoing' &&
+              messagesAsync.value != null &&
+              messagesAsync.value!.any((m) => m.senderId == 'self'))
+            _buildWaitingApprovalBar()
+          else
+            ChatComposer(
+              replyToSender: _replyingMessage?.senderName,
+              replyToText: _replyingMessage?.content,
+              onCancelReply: () => setState(() => _replyingMessage = null),
+              onSendMessage: _sendMessage,
+              onSendMedia: _sendMedia,
+              onDraftChanged: (draft) {
+                ref.read(databaseServiceProvider).updateConversationDraft(widget.conversationId, draft);
+              },
+            ),
         ],
       ),
     ),
   );
 }
+
+  Widget _buildApprovalBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            offset: const Offset(0, -3),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'This user wants to connect with you. Approve to start messaging.',
+              style: TextStyle(fontSize: 13, color: AppColors.grey500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () async {
+                      final chatRepo = ref.read(chatRepositoryProvider);
+                      await chatRepo.denyConnection(widget.conversationId);
+                      ref.invalidate(pendingRequestsProvider);
+                      ref.invalidate(conversationsProvider);
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Request denied. User moved to Blocked list.'),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                      _handleBack(context);
+                    },
+                    child: const Text('Deny', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.ultraviolet,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      elevation: 2,
+                    ),
+                    onPressed: () async {
+                      final chatRepo = ref.read(chatRepositoryProvider);
+                      await chatRepo.approveConnection(widget.conversationId);
+                      ref.invalidate(pendingRequestsProvider);
+                      ref.invalidate(conversationsProvider);
+                      await _loadConversation();
+                      ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Request approved! You can now chat.'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    },
+                    child: const Text('Approve', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWaitingApprovalBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColors.lavender.withValues(alpha: 0.5),
+        border: Border(top: BorderSide(color: AppColors.ultraviolet.withValues(alpha: 0.2))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            const Icon(Icons.hourglass_top_rounded, color: AppColors.ultraviolet, size: 24),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                'Waiting for recipient to approve request. You can send more messages once approved.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

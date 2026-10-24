@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../app/providers.dart';
 import '../../core/theme/colors.dart';
@@ -18,16 +20,29 @@ class NewConnectionScreen extends ConsumerStatefulWidget {
 class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _pasteController = TextEditingController();
+  final MobileScannerController _scannerController = MobileScannerController(
+    detectionSpeed: DetectionSpeed.normal,
+    facing: CameraFacing.back,
+    torchEnabled: false,
+  );
 
   ConnectionInvite? _generatedInvite;
   bool _isLoadingInvite = false;
   bool _isConnecting = false;
   bool _isReusable = false;
+  bool _isScanningMode = true; // true = camera, false = manual paste
+  bool _hasProcessedCode = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index == 1) {
+        _hasProcessedCode = false;
+      }
+      setState(() {});
+    });
     _generateInvite();
   }
 
@@ -35,6 +50,7 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
   void dispose() {
     _tabController.dispose();
     _pasteController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
@@ -43,6 +59,10 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
     try {
       final connRepo = ref.read(connectionRepositoryProvider);
       final invite = await connRepo.createInvite(isReusable: _isReusable);
+      
+      // Immediately start listening on this invite queue for real-time handshake delivery
+      ref.read(chatRepositoryProvider).listenToInviteQueue(invite.inboxQueueId);
+
       if (mounted) {
         setState(() {
           _generatedInvite = invite;
@@ -59,40 +79,60 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
     }
   }
 
-  Future<void> _connectWithPastedInvite() async {
-    final text = _pasteController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please paste a connection link or invite code')),
-      );
-      return;
-    }
+  Future<void> _handleScannedCode(String rawCode) async {
+    if (_hasProcessedCode || _isConnecting) return;
+    _hasProcessedCode = true;
 
-    final invite = ConnectionInvite.fromDeepLink(text);
+    final trimmed = rawCode.trim();
+    final invite = ConnectionInvite.fromDeepLink(trimmed);
     if (invite == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid Bharosa invite format')),
-      );
+      _hasProcessedCode = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid QR code format')),
+        );
+      }
       return;
     }
 
+    // 1. Duplicate check: Has this user already been added?
+    final db = ref.read(databaseServiceProvider);
+    final existing = await db.getContactByPeerKey(invite.inviterIdentityKey) ??
+                     await db.getContactBySendQueue(invite.inboxQueueId);
+
+    if (existing != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User is already added'),
+          backgroundColor: AppColors.ultraviolet,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      context.push('/chat/${existing.id}');
+      return;
+    }
+
+    // 2. Connect as new contact
     setState(() => _isConnecting = true);
     try {
       final connRepo = ref.read(connectionRepositoryProvider);
       final contact = await connRepo.connectWithInvite(invite);
 
-      // Refresh conversations list
+      // Start listening to the peer's queue immediately
+      ref.read(chatRepositoryProvider).ensureListening(contact.id);
       ref.read(conversationsProvider.notifier).loadConversations();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.success,
-          content: Text('Connected with ${contact.displayName}!'),
+          content: Text('Connected with ${contact.displayName}! Send a message.'),
         ),
       );
-      context.go('/chat/${contact.id}');
+      context.push('/chat/${contact.id}');
     } catch (e) {
+      _hasProcessedCode = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Connection failed: $e')),
@@ -100,6 +140,35 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
       }
     } finally {
       if (mounted) setState(() => _isConnecting = false);
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return;
+
+      final barcodeCapture = await _scannerController.analyzeImage(picked.path);
+      if (barcodeCapture != null && barcodeCapture.barcodes.isNotEmpty) {
+        final code = barcodeCapture.barcodes.first.rawValue;
+        if (code != null) {
+          await _handleScannedCode(code);
+          return;
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No QR code detected in the selected image.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error analyzing gallery image: $e')),
+        );
+      }
     }
   }
 
@@ -118,39 +187,52 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
           labelStyle: AppTypography.button.copyWith(fontSize: 15),
           tabs: const [
             Tab(text: 'My Invite (QR)'),
-            Tab(text: 'Scan / Paste'),
+            Tab(text: 'Scan & Connect'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Tab 1: Create Invite
-          _buildCreateInviteTab(),
-
-          // Tab 2: Scan / Paste Link
-          _buildScanPasteTab(),
+          _buildMyInviteTab(),
+          _buildScanConnectTab(),
         ],
       ),
     );
   }
 
-  Widget _buildCreateInviteTab() {
+  Widget _buildMyInviteTab() {
     if (_isLoadingInvite) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.ultraviolet),
+      return const Center(child: CircularProgressIndicator(color: AppColors.ultraviolet));
+    }
+
+    if (_generatedInvite == null) {
+      return Center(
+        child: ElevatedButton(
+          onPressed: _generateInvite,
+          child: const Text('Generate Invite QR'),
+        ),
       );
     }
 
-    final deepLink = _generatedInvite?.toDeepLink() ?? '';
+    final deepLink = _generatedInvite!.toDeepLink();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         children: [
-          // High-Res QR Card
+          Text('Pairwise Ephemeral Handshake', style: AppTypography.title.copyWith(fontSize: 18)),
+          const SizedBox(height: 6),
+          Text(
+            'Ask your friend to scan this QR code or share the invite link below. As soon as they connect, you will receive a notification.',
+            textAlign: TextAlign.center,
+            style: AppTypography.caption,
+          ),
+          const SizedBox(height: 20),
+
+          // QR Code Card
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(AppRadius.card),
@@ -159,32 +241,27 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
             ),
             child: Column(
               children: [
-                if (deepLink.isNotEmpty)
-                  QrImageView(
-                    data: deepLink,
-                    version: QrVersions.auto,
-                    size: 220.0,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: AppColors.ink,
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: AppColors.ink,
-                    ),
+                QrImageView(
+                  data: deepLink,
+                  version: QrVersions.auto,
+                  size: 220.0,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: AppColors.ultraviolet,
                   ),
-                const SizedBox(height: 16),
-                Text(
-                  _isReusable ? 'Reusable Contact Address' : 'One-Time Connection Invite',
-                  style: AppTypography.title.copyWith(fontSize: 16),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: AppColors.ink,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 Text(
-                  _isReusable
-                      ? 'Anyone with this link can request connection (manual accept).'
-                      : 'Automatically expires once connected or after 7 days.',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.caption,
+                  _isReusable ? 'Reusable Contact Address' : 'Single-Use Ephemeral Postbox',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _isReusable ? AppColors.success : AppColors.ultraviolet,
+                  ),
                 ),
               ],
             ),
@@ -192,10 +269,10 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
 
           const SizedBox(height: 20),
 
-          // Reusable Address Switch (Section 13 Decision 4)
+          // Reusable Switch
           SwitchListTile(
-            title: const Text('Reusable Contact Address'),
-            subtitle: const Text('Make this invite link reusable for social bios'),
+            title: const Text('Reusable Invite Address'),
+            subtitle: const Text('Allow multiple friends to connect using this same address'),
             value: _isReusable,
             activeThumbColor: AppColors.ultraviolet,
             onChanged: (val) {
@@ -234,9 +311,163 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
     );
   }
 
-  Widget _buildScanPasteTab() {
+  Widget _buildScanConnectTab() {
+    return Column(
+      children: [
+        // Mode Switcher: Camera QR vs Manual Paste
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  label: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text('Camera QR Scan'),
+                    ],
+                  ),
+                  selected: _isScanningMode,
+                  selectedColor: AppColors.ultraviolet,
+                  labelStyle: TextStyle(
+                    color: _isScanningMode ? AppColors.white : AppColors.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  onSelected: (val) => setState(() => _isScanningMode = true),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.paste_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text('Paste Link'),
+                    ],
+                  ),
+                  selected: !_isScanningMode,
+                  selectedColor: AppColors.ultraviolet,
+                  labelStyle: TextStyle(
+                    color: !_isScanningMode ? AppColors.white : AppColors.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  onSelected: (val) => setState(() => _isScanningMode = false),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: _isScanningMode ? _buildCameraScannerView() : _buildManualPasteView(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCameraScannerView() {
+    return Column(
+      children: [
+        Expanded(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              MobileScanner(
+                controller: _scannerController,
+                onDetect: (capture) {
+                  final barcodes = capture.barcodes;
+                  for (final barcode in barcodes) {
+                    if (barcode.rawValue != null) {
+                      _handleScannedCode(barcode.rawValue!);
+                      break;
+                    }
+                  }
+                },
+              ),
+
+              // Viewfinder Overlay
+              Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.ultraviolet, width: 3),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+
+              if (_isConnecting)
+                Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.white),
+                        SizedBox(height: 16),
+                        Text(
+                          'Connecting pairwise key...',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Camera Control Overlay
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.flash_on_rounded, color: Colors.white),
+                      onPressed: () => _scannerController.toggleTorch(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.cameraswitch_rounded, color: Colors.white),
+                      onPressed: () => _scannerController.switchCamera(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Gallery Upload Button
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          color: AppColors.white,
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.lavender,
+                foregroundColor: AppColors.ultraviolet,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: _pickImageFromGallery,
+              icon: const Icon(Icons.photo_library_rounded, size: 20),
+              label: const Text(
+                'Upload QR from Gallery',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildManualPasteView() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -270,7 +501,7 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isConnecting ? null : _connectWithPastedInvite,
+              onPressed: _isConnecting ? null : () => _handleScannedCode(_pasteController.text),
               icon: _isConnecting
                   ? const SizedBox(
                       width: 18,
@@ -282,31 +513,14 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
             ),
           ),
 
-          const SizedBox(height: 36),
+          const SizedBox(height: 24),
 
-          // Simulated QR Scanner card
-          Center(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                border: Border.all(color: AppColors.grey200),
-                boxShadow: AppColors.softCardShadow,
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.qr_code_scanner_rounded, size: 48, color: AppColors.ultraviolet),
-                  const SizedBox(height: 12),
-                  Text('Camera QR Scanner', style: AppTypography.title.copyWith(fontSize: 16)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Point camera at your friend’s device screen to instantly connect.',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.caption,
-                  ),
-                ],
-              ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _pickImageFromGallery,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('Pick QR from Gallery'),
             ),
           ),
         ],

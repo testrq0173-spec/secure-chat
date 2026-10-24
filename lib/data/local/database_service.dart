@@ -36,6 +36,14 @@ class DatabaseService {
       path,
       version: 1,
       onCreate: _createTables,
+      onOpen: (db) async {
+        try {
+          await db.execute("ALTER TABLE contacts ADD COLUMN requestStatus TEXT NOT NULL DEFAULT 'approved'");
+        } catch (_) {}
+        try {
+          await db.execute("ALTER TABLE conversations ADD COLUMN requestStatus TEXT NOT NULL DEFAULT 'approved'");
+        } catch (_) {}
+      },
     );
   }
 
@@ -67,6 +75,7 @@ class DatabaseService {
         isMuted INTEGER NOT NULL DEFAULT 0,
         isBlocked INTEGER NOT NULL DEFAULT 0,
         isReusableAddress INTEGER NOT NULL DEFAULT 0,
+        requestStatus TEXT NOT NULL DEFAULT 'approved',
         createdAt INTEGER NOT NULL
       )
     ''');
@@ -86,9 +95,11 @@ class DatabaseService {
         draftText TEXT,
         contactId TEXT,
         groupId TEXT,
-        isVerified INTEGER NOT NULL DEFAULT 0
+        isVerified INTEGER NOT NULL DEFAULT 0,
+        requestStatus TEXT NOT NULL DEFAULT 'approved'
       )
     ''');
+
 
     await db.execute('''
       CREATE TABLE messages (
@@ -196,10 +207,50 @@ class DatabaseService {
     return res.isNotEmpty ? Contact.fromMap(res.first) : null;
   }
 
+  Future<Contact?> getContactByPeerKey(String peerPublicKey) async {
+    final db = await database;
+    final res = await db.query('contacts', where: 'peerPublicKey = ?', whereArgs: [peerPublicKey]);
+    return res.isNotEmpty ? Contact.fromMap(res.first) : null;
+  }
+
+  Future<Contact?> getContactBySendQueue(String sendQueueId) async {
+    final db = await database;
+    final res = await db.query('contacts', where: 'sendQueueId = ?', whereArgs: [sendQueueId]);
+    return res.isNotEmpty ? Contact.fromMap(res.first) : null;
+  }
+
   Future<List<Contact>> getAllContacts() async {
     final db = await database;
     final res = await db.query('contacts', orderBy: 'displayName ASC');
     return res.map((m) => Contact.fromMap(m)).toList();
+  }
+
+  Future<List<Contact>> getBlockedContacts() async {
+    final db = await database;
+    final res = await db.query(
+      'contacts',
+      where: "isBlocked = 1 OR requestStatus = 'blocked'",
+      orderBy: 'displayName ASC',
+    );
+    return res.map((m) => Contact.fromMap(m)).toList();
+  }
+
+  Future<void> approveContact(String contactId) async {
+    final db = await database;
+    await db.update('contacts', {'requestStatus': 'approved', 'isBlocked': 0}, where: 'id = ?', whereArgs: [contactId]);
+    await db.update('conversations', {'requestStatus': 'approved'}, where: 'id = ?', whereArgs: [contactId]);
+  }
+
+  Future<void> blockContact(String contactId) async {
+    final db = await database;
+    await db.update('contacts', {'requestStatus': 'blocked', 'isBlocked': 1}, where: 'id = ?', whereArgs: [contactId]);
+    await db.update('conversations', {'requestStatus': 'blocked'}, where: 'id = ?', whereArgs: [contactId]);
+  }
+
+  Future<void> unblockContact(String contactId) async {
+    final db = await database;
+    await db.update('contacts', {'requestStatus': 'approved', 'isBlocked': 0}, where: 'id = ?', whereArgs: [contactId]);
+    await db.update('conversations', {'requestStatus': 'approved'}, where: 'id = ?', whereArgs: [contactId]);
   }
 
   Future<void> deleteContact(String id) async {
@@ -221,7 +272,8 @@ class DatabaseService {
 
   Future<List<Conversation>> getConversations({bool includeArchived = false}) async {
     final db = await database;
-    final whereClause = includeArchived ? null : 'isArchived = 0';
+    const baseClause = "requestStatus != 'pending_incoming' AND requestStatus != 'blocked'";
+    final whereClause = includeArchived ? baseClause : "$baseClause AND isArchived = 0";
     final res = await db.query(
       'conversations',
       where: whereClause,
@@ -229,6 +281,30 @@ class DatabaseService {
     );
     return res.map((m) => Conversation.fromMap(m)).toList();
   }
+
+  Future<List<Conversation>> getPendingRequests() async {
+    final db = await database;
+    final res = await db.query(
+      'conversations',
+      where: "requestStatus = 'pending_incoming'",
+      orderBy: 'lastMessageTime DESC, id DESC',
+    );
+    return res.map((m) => Conversation.fromMap(m)).toList();
+  }
+
+  Future<int> getPendingRequestsCount() async {
+    final db = await database;
+    final res = await db.rawQuery("SELECT COUNT(*) as cnt FROM conversations WHERE requestStatus = 'pending_incoming'");
+    return res.isNotEmpty ? (res.first['cnt'] as int? ?? 0) : 0;
+  }
+
+  Future<int> getSentMessagesCount(String conversationId) async {
+    final db = await database;
+    final res = await db.rawQuery("SELECT COUNT(*) as cnt FROM messages WHERE conversationId = ? AND senderId = 'self'", [conversationId]);
+    return res.isNotEmpty ? (res.first['cnt'] as int? ?? 0) : 0;
+  }
+
+
 
   Future<void> updateConversationDraft(String id, String? draftText) async {
     final db = await database;

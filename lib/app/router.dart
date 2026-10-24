@@ -10,7 +10,10 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../features/onboarding/splash_screen.dart';
 import '../features/security/lock_screen.dart';
 import '../features/security/set_lock_screen.dart';
+import '../features/chats/pending_requests_screen.dart';
+import '../features/settings/blocked_users_screen.dart';
 import '../features/settings/settings_screen.dart';
+
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -72,5 +75,14 @@ final appRouter = GoRouter(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
     ),
+    GoRoute(
+      path: '/requests',
+      builder: (context, state) => const PendingRequestsScreen(),
+    ),
+    GoRoute(
+      path: '/blocked-users',
+      builder: (context, state) => const BlockedUsersScreen(),
+    ),
   ],
 );
+

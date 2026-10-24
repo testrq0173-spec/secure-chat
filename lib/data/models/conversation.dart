@@ -15,6 +15,7 @@ class Conversation {
   final String? contactId;
   final String? groupId;
   final bool isVerified;
+  final String requestStatus; // 'approved', 'pending_incoming', 'pending_outgoing', 'blocked'
 
   Conversation({
     required this.id,
@@ -31,6 +32,7 @@ class Conversation {
     this.contactId,
     this.groupId,
     this.isVerified = false,
+    this.requestStatus = 'approved',
   });
 
   Conversation copyWith({
@@ -48,6 +50,7 @@ class Conversation {
     String? contactId,
     String? groupId,
     bool? isVerified,
+    String? requestStatus,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -64,6 +67,7 @@ class Conversation {
       contactId: contactId ?? this.contactId,
       groupId: groupId ?? this.groupId,
       isVerified: isVerified ?? this.isVerified,
+      requestStatus: requestStatus ?? this.requestStatus,
     );
   }
 
@@ -83,6 +87,7 @@ class Conversation {
       'contactId': contactId,
       'groupId': groupId,
       'isVerified': isVerified ? 1 : 0,
+      'requestStatus': requestStatus,
     };
   }
 
@@ -105,6 +110,7 @@ class Conversation {
       contactId: map['contactId'] as String?,
       groupId: map['groupId'] as String?,
       isVerified: (map['isVerified'] as int? ?? 0) == 1,
+      requestStatus: map['requestStatus'] as String? ?? 'approved',
     );
   }
 }
