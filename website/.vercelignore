@@ -1,0 +1,5 @@
+# Ignore large APK files to prevent Vercel 100MB static asset limit error
+downloads/*.apk
+downloads/**/*.apk
+*.apk
+.git

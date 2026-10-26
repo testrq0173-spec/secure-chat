@@ -1,9 +1,18 @@
 // ==========================================================================
-// BHAROSA MESSENGER - MOTIONSITES-STYLE PARALLAX & MOTION ENGINE
+// BHAROSA MESSENGER - EDITORIAL TECH & MOTION ENGINE
+// Features: Interactive Theme-Colored Spotlight Grid, Scroll-Based Reveals,
+// 3D Parallax Tilt, Reading Progress Bar, and Zero-Knowledge Key Simulator
 // ==========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Cursor Glow Spotlight Follower
+  // 1. Interactive Theme-Colored Spotlight Grid Lines on Mouse Hover
+  const root = document.documentElement;
+  window.addEventListener('mousemove', (e) => {
+    root.style.setProperty('--mouse-x', `${e.clientX}px`);
+    root.style.setProperty('--mouse-y', `${e.clientY}px`);
+  });
+
+  // 2. Cursor Glow Follower (Tuned for Crisp Light Theme)
   const cursorGlow = document.getElementById('cursorGlow');
   if (cursorGlow) {
     let mouseX = window.innerWidth / 2;
@@ -17,9 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function animateCursor() {
-      // Smooth interpolation (lerp)
-      currentX += (mouseX - currentX) * 0.12;
-      currentY += (mouseY - currentY) * 0.12;
+      currentX += (mouseX - currentX) * 0.14;
+      currentY += (mouseY - currentY) * 0.14;
       cursorGlow.style.left = `${currentX}px`;
       cursorGlow.style.top = `${currentY}px`;
       requestAnimationFrame(animateCursor);
@@ -27,7 +35,39 @@ document.addEventListener('DOMContentLoaded', () => {
     animateCursor();
   }
 
-  // 2. Interactive 3D Tilt Parallax on Hero Showcase
+  // 3. Scroll Reading Progress Bar
+  const progressBar = document.getElementById('scrollProgress');
+  window.addEventListener('scroll', () => {
+    if (progressBar) {
+      const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+      progressBar.style.width = `${scrolled}%`;
+    }
+  }, { passive: true });
+
+  // 4. Scroll-Based Reveal Animation Engine (IntersectionObserver)
+  const revealElements = document.querySelectorAll('.reveal-on-scroll');
+  if ('IntersectionObserver' in window) {
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      root: null,
+      rootMargin: '0px 0px -50px 0px',
+      threshold: 0.1
+    });
+
+    revealElements.forEach(el => revealObserver.observe(el));
+  } else {
+    revealElements.forEach(el => el.classList.add('is-visible'));
+  }
+
+  // 5. Interactive 3D Tilt Parallax on Hero Smartphone Showcase
   const heroStage = document.getElementById('heroStage');
   const heroCard = document.getElementById('heroCard');
   const heroGlare = document.getElementById('heroGlare');
@@ -36,15 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeTopRight = document.getElementById('badgeTopRight');
 
   if (heroStage && heroCard) {
-    let isHovering = false;
     let tiltX = 0;
     let tiltY = 0;
     let targetTiltX = 0;
     let targetTiltY = 0;
-
-    heroStage.addEventListener('mouseenter', () => {
-      isHovering = true;
-    });
 
     heroStage.addEventListener('mousemove', (e) => {
       const rect = heroStage.getBoundingClientRect();
@@ -53,11 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
 
-      // Calculate tilt angles (clamped for natural feel)
-      targetTiltX = ((y - centerY) / centerY) * -14;
-      targetTiltY = ((x - centerX) / centerX) * 16;
+      targetTiltX = ((y - centerY) / centerY) * -12;
+      targetTiltY = ((x - centerX) / centerX) * 14;
 
-      // Update glare reflection position
       const glareX = (x / rect.width) * 100;
       const glareY = (y / rect.height) * 100;
       if (heroGlare) {
@@ -67,27 +100,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     heroStage.addEventListener('mouseleave', () => {
-      isHovering = false;
       targetTiltX = 0;
       targetTiltY = 0;
     });
 
     function update3DTilt() {
-      // Smooth spring interpolation
       tiltX += (targetTiltX - tiltX) * 0.1;
       tiltY += (targetTiltY - tiltY) * 0.1;
 
       heroCard.style.transform = `rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg) translateZ(0px)`;
 
-      // Parallax floating capsules in opposite direction for maximum depth illusion!
       if (badgeLeft) {
-        badgeLeft.style.transform = `translate3d(${-tiltY * 1.8}px, ${tiltX * 1.4}px, 60px)`;
+        badgeLeft.style.transform = `translate3d(${-tiltY * 1.6}px, ${tiltX * 1.2}px, 50px)`;
       }
       if (badgeRight) {
-        badgeRight.style.transform = `translate3d(${-tiltY * 2.2}px, ${tiltX * 1.8}px, 80px)`;
+        badgeRight.style.transform = `translate3d(${-tiltY * 2.0}px, ${tiltX * 1.5}px, 60px)`;
       }
       if (badgeTopRight) {
-        badgeTopRight.style.transform = `translate3d(${-tiltY * 1.5}px, ${tiltX * 1.2}px, 50px)`;
+        badgeTopRight.style.transform = `translate3d(${-tiltY * 1.4}px, ${tiltX * 1.0}px, 40px)`;
       }
 
       requestAnimationFrame(update3DTilt);
@@ -95,35 +125,18 @@ document.addEventListener('DOMContentLoaded', () => {
     update3DTilt();
   }
 
-  // 3. Multi-Layer Scroll Parallax Engine
+  // 6. Multi-Layer Scroll Parallax
   const orb1 = document.getElementById('orb1');
   const orb2 = document.getElementById('orb2');
-  const heroTitle = document.getElementById('heroTitle');
-  const heroSubtitle = document.getElementById('heroSubtitle');
-  const heroBadge = document.getElementById('heroBadge');
 
   window.addEventListener('scroll', () => {
     const scrollY = window.scrollY;
 
-    // Ambient orbs parallax
-    if (orb1) orb1.style.transform = `translateY(${scrollY * 0.15}px)`;
-    if (orb2) orb2.style.transform = `translateY(${-scrollY * 0.12}px)`;
-
-    // Hero title gentle parallax drift
-    if (heroTitle && scrollY < 800) {
-      heroTitle.style.transform = `translateY(${scrollY * 0.18}px)`;
-      heroTitle.style.opacity = `${Math.max(0, 1 - scrollY / 700)}`;
-    }
-    if (heroSubtitle && scrollY < 800) {
-      heroSubtitle.style.transform = `translateY(${scrollY * 0.12}px)`;
-      heroSubtitle.style.opacity = `${Math.max(0, 1 - scrollY / 650)}`;
-    }
-    if (heroBadge && scrollY < 800) {
-      heroBadge.style.transform = `translateY(${scrollY * 0.22}px)`;
-    }
+    if (orb1) orb1.style.transform = `translateY(${scrollY * 0.12}px)`;
+    if (orb2) orb2.style.transform = `translateY(${-scrollY * 0.1}px)`;
   }, { passive: true });
 
-  // 4. Sticky Navbar on Scroll
+  // 7. Sticky Navbar on Scroll
   const navbar = document.querySelector('.navbar');
   window.addEventListener('scroll', () => {
     if (window.scrollY > 40) {
@@ -133,19 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, { passive: true });
 
-  // 5. Interactive Spotlight Card Glow on Mouse Move
-  const cards = document.querySelectorAll('.bento-card, .stat-card, .arch-step-card');
-  cards.forEach(card => {
-    card.addEventListener('mousemove', (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      card.style.setProperty('--mouse-x', `${x}px`);
-      card.style.setProperty('--mouse-y', `${y}px`);
-    });
-  });
-
-  // 6. FAQ Accordion Toggle
+  // 8. FAQ Accordion Toggle
   const faqItems = document.querySelectorAll('.faq-item');
   faqItems.forEach(item => {
     const question = item.querySelector('.faq-question');
@@ -158,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 7. Toast Notification Utility
+  // 9. Toast Notification Utility
   const toast = document.getElementById('toast');
   const toastText = document.getElementById('toast-text');
   let toastTimeout;
@@ -173,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, duration);
   }
 
-  // 8. iOS Coming Soon Trigger
+  // 10. iOS Coming Soon Trigger
   const iosButtons = document.querySelectorAll('.ios-trigger');
   iosButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -182,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 9. Download APK Trigger Toast
+  // 11. Download APK Trigger Toast
   const downloadBtns = document.querySelectorAll('.download-apk-btn');
   downloadBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -190,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 10. Interactive Keypair Generator Simulator
+  // 12. Interactive Keypair Generator Simulator
   const regBtn = document.getElementById('regenerate-keys-btn');
   const pubKeyEl = document.getElementById('sim-pub-key');
   const privKeyEl = document.getElementById('sim-priv-key');

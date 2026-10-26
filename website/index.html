@@ -16,11 +16,15 @@
 </head>
 <body>
 
-  <!-- Ambient Glowing Atmosphere (Light Theme) -->
+  <!-- Scroll Reading Progress Bar -->
+  <div class="scroll-progress-bar" id="scrollProgress"></div>
+
+  <!-- Ambient Glowing Atmosphere (Light Theme with Interactive Hover Spotlight Grid) -->
   <div class="cursor-glow" id="cursorGlow"></div>
   <div class="ambient-glow-1" id="orb1"></div>
   <div class="ambient-glow-2" id="orb2"></div>
   <div class="grid-overlay"></div>
+  <div class="grid-spotlight" id="gridSpotlight"></div>
 
   <!-- Sticky Navbar -->
   <header class="navbar">
@@ -56,21 +60,21 @@
   <!-- Hero Section -->
   <section class="hero-section" id="hero">
     <div class="container">
-      <div class="pill-badge" id="heroBadge">
+      <div class="pill-badge reveal-on-scroll" id="heroBadge">
         <span class="pulsing-dot"></span>
         Zero-Knowledge Encrypted Messaging
       </div>
 
-      <h1 class="hero-title" id="heroTitle">
+      <h1 class="hero-title reveal-on-scroll stagger-1" id="heroTitle">
         Private conversations.<br>
         <span class="gradient-text">Absolute <em>peace of mind.</em></span>
       </h1>
 
-      <p class="hero-subtitle" id="heroSubtitle">
+      <p class="hero-subtitle reveal-on-scroll stagger-2" id="heroSubtitle">
         Engineered with Double Ratchet cryptographic forward secrecy and SimpleX-inspired blinded capability queues. No phone numbers, no email addresses, and zero metadata footprints.
       </p>
 
-      <div class="hero-cta-group">
+      <div class="hero-cta-group reveal-on-scroll stagger-3">
         <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="conic-glow-btn download-apk-btn">
           <span class="conic-glow-inner">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -89,20 +93,20 @@
         </a>
       </div>
 
-      <p class="checksum-info">v1.0.0 &bull; Android 8.0+ &bull; Double Ratchet E2EE &bull; Clean Architecture</p>
+      <p class="checksum-info reveal-on-scroll stagger-3">v1.0.0 &bull; Android 8.0+ &bull; Double Ratchet E2EE &bull; Clean Architecture</p>
 
       <!-- 3D Parallax Smartphone Stage with Floating Badges -->
-      <div class="hero-stage" id="heroStage">
+      <div class="hero-stage reveal-on-scroll reveal-scale stagger-4" id="heroStage">
         <div class="floating-capsule top-left" id="badgeLeft">
-          <span style="font-size: 1.1rem;">🔒</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-ultraviolet);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           <span>Double Ratchet KDF #84102</span>
         </div>
         <div class="floating-capsule top-right" id="badgeTopRight">
-          <span style="font-size: 1.1rem;">🛡️</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary-ultraviolet);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
           <span>Zero Identifiers &bull; No Phone</span>
         </div>
         <div class="floating-capsule bottom-right" id="badgeRight">
-          <span style="font-size: 1.1rem;">⚡</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-green);"><polyline points="20 6 9 17 4 12"></polyline></svg>
           <span>Blinded Queue Delivered &bull; Wiped (0s)</span>
         </div>
 
@@ -114,19 +118,19 @@
 
       <!-- Stat Highlights Banner -->
       <div class="stats-banner">
-        <div class="stat-card">
-          <div class="stat-number gradient-text-purple">0</div>
+        <div class="stat-card reveal-on-scroll stagger-1">
+          <div class="stat-number gradient-text-purple" data-target="0">0</div>
           <div class="stat-label">Identifiers Required (No Phone / Email)</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card reveal-on-scroll stagger-2">
           <div class="stat-number gradient-text">256-bit</div>
           <div class="stat-label">Double Ratchet Forward Secrecy</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card reveal-on-scroll stagger-3">
           <div class="stat-number gradient-text-purple">0s</div>
           <div class="stat-label">Server Packet Retention (Instant Wipe)</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card reveal-on-scroll stagger-4">
           <div class="stat-number gradient-text">100%</div>
           <div class="stat-label">Blinded Capability Queues</div>
         </div>
@@ -161,7 +165,7 @@
   <!-- Bento Grid Features Section -->
   <section class="section" id="features">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal-on-scroll">
         <span class="section-tag">Core Architecture</span>
         <h2 class="section-title">Designed for true <em>cryptographic sovereignty.</em></h2>
         <p class="section-description">
@@ -171,8 +175,13 @@
 
       <div class="bento-grid">
         <!-- Card 1: Zero Phone Numbers -->
-        <div class="bento-card bento-col-8">
-          <div class="card-icon">🔑</div>
+        <div class="bento-card bento-col-8 reveal-on-scroll stagger-1">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 2l-2 2m-1.5 1.5L14 9l-3 3-3-3L2 15l4 4 6-6 1.5-1.5M19 5l2 2-2 2-2-2 2-2z"></path>
+              <circle cx="7.5" cy="16.5" r="3.5"></circle>
+            </svg>
+          </div>
           <h3 class="card-title">Zero Phone Numbers. <em>Zero Accounts.</em></h3>
           <p class="card-text">
             Your identity is simply an ephemeral Ed25519 cryptographic keypair generated entirely on your device. No SIM swapping, no phone directory harvests, and zero surveillance.
@@ -206,8 +215,14 @@
         </div>
 
         <!-- Card 2: Double Ratchet -->
-        <div class="bento-card bento-col-4">
-          <div class="card-icon">⚡</div>
+        <div class="bento-card bento-col-4 reveal-on-scroll stagger-2">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              <circle cx="12" cy="16" r="1.5"></circle>
+            </svg>
+          </div>
           <h3 class="card-title">Double Ratchet <em>Forward Secrecy</em></h3>
           <p class="card-text">
             Every single message creates a new ephemeral encryption key that is permanently destroyed immediately after decryption. Even a compromised device cannot decrypt past history.
@@ -220,8 +235,14 @@
         </div>
 
         <!-- Card 3: WhatsApp-Grade Media Viewer -->
-        <div class="bento-card bento-col-4">
-          <div class="card-icon">🎬</div>
+        <div class="bento-card bento-col-4 reveal-on-scroll stagger-1">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+            </svg>
+          </div>
           <h3 class="card-title">Full Video & Photo Suite</h3>
           <p class="card-text">
             Enjoy smooth pinch-to-zoom (up to 5x), timeline scrubbing, interactive reply gestures, and HD voice messaging—all fully encrypted.
@@ -229,8 +250,13 @@
         </div>
 
         <!-- Card 4: Swipe to Reply & Highlight -->
-        <div class="bento-card bento-col-4">
-          <div class="card-icon">💬</div>
+        <div class="bento-card bento-col-4 reveal-on-scroll stagger-2">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 17 4 12 9 7"></polyline>
+              <path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
+            </svg>
+          </div>
           <h3 class="card-title">Fluid Swipe-to-Reply</h3>
           <p class="card-text">
             Swipe right on any message with haptic response to quote-reply. Click any quote banner to auto-scroll with our signature soft lavender glow highlight.
@@ -238,8 +264,14 @@
         </div>
 
         <!-- Card 5: Biometric App Lock Vault -->
-        <div class="bento-card bento-col-4">
-          <div class="card-icon">🛡️</div>
+        <div class="bento-card bento-col-4 reveal-on-scroll stagger-3">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <path d="M12 8v4"></path>
+              <circle cx="12" cy="15" r="1"></circle>
+            </svg>
+          </div>
           <h3 class="card-title">Biometric Vault & Lock</h3>
           <p class="card-text">
             Hardware-backed Face Unlock, Fingerprint, and 4-digit PIN authentication protecting local SQLite encrypted vaults with zero cloud storage.
@@ -252,7 +284,7 @@
   <!-- Security Architecture Deep-Dive (Dedicated Lavender Theme) -->
   <section class="section section-lavender-theme" id="security">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal-on-scroll">
         <span class="section-tag">Zero-Knowledge Architecture</span>
         <h2 class="section-title">Blinded capability queues. <em>Zero digital footprints.</em></h2>
         <p class="section-description">
@@ -260,22 +292,22 @@
         </p>
       </div>
 
-      <div class="architecture-box">
+      <div class="architecture-box reveal-on-scroll reveal-scale">
         <img src="assets/security_diagram.jpg" alt="Blinded Zero Knowledge Queue Architecture Diagram">
       </div>
 
       <div class="arch-steps-grid">
-        <div class="arch-step-card">
+        <div class="arch-step-card reveal-on-scroll stagger-1">
           <div class="step-num">Step 01</div>
           <h4 class="step-title">Queue Capability Generation</h4>
           <p class="step-desc">Each contact pair creates two decoupled unidirectional random 128-bit queue capabilities (A&rarr;B and B&rarr;A). Neither queue reveals the other.</p>
         </div>
-        <div class="arch-step-card">
+        <div class="arch-step-card reveal-on-scroll stagger-2">
           <div class="step-num">Step 02</div>
           <h4 class="step-title">Double Outer Encryption</h4>
           <p class="step-desc">Packets are sealed first with the contact's Double Ratchet key, then double-wrapped with the transport-level queue capability key.</p>
         </div>
-        <div class="arch-step-card">
+        <div class="arch-step-card reveal-on-scroll stagger-3">
           <div class="step-num">Step 03</div>
           <h4 class="step-title">Zero-Retention Wipe</h4>
           <p class="step-desc">As soon as the recipient device pulls the packet, it is instantly deleted from the relay server with zero logs or footprints.</p>
@@ -287,7 +319,7 @@
   <!-- Comparison Matrix Section -->
   <section class="section" id="comparison">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal-on-scroll">
         <span class="section-tag">Feature Audit</span>
         <h2 class="section-title">How Bharosa <em>compares.</em></h2>
         <p class="section-description">
@@ -295,7 +327,7 @@
         </p>
       </div>
 
-      <div class="comparison-table-wrapper">
+      <div class="comparison-table-wrapper reveal-on-scroll">
         <table class="comparison-table">
           <thead>
             <tr>
@@ -358,7 +390,7 @@
   <!-- Technical Specifications -->
   <section class="section" id="tech-specs" style="background: #faf8ff;">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal-on-scroll">
         <span class="section-tag">Specifications</span>
         <h2 class="section-title">Cryptographic <em>stack.</em></h2>
         <p class="section-description">
@@ -367,8 +399,14 @@
       </div>
 
       <div class="bento-grid">
-        <div class="bento-card bento-col-6">
-          <h3 class="card-title">🔐 Symmetric & Key Exchange</h3>
+        <div class="bento-card bento-col-6 reveal-on-scroll stagger-1">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h3 class="card-title">Symmetric & Key Exchange</h3>
           <p class="card-text">
             &bull; <strong>Key Agreement:</strong> X25519 Curve25519 (ECDH)<br>
             &bull; <strong>Symmetric Cipher:</strong> ChaCha20-Poly1305 (256-bit AEAD)<br>
@@ -376,8 +414,15 @@
             &bull; <strong>Authentication:</strong> Ed25519 Digital Signatures
           </p>
         </div>
-        <div class="bento-card bento-col-6">
-          <h3 class="card-title">📦 Storage & Transport</h3>
+        <div class="bento-card bento-col-6 reveal-on-scroll stagger-2">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+          </div>
+          <h3 class="card-title">Storage & Transport</h3>
           <p class="card-text">
             &bull; <strong>Local Database:</strong> SQLite with AES-256 local encryption<br>
             &bull; <strong>Key Material:</strong> Android Keystore & iOS Keychain Secure Enclave<br>
@@ -392,7 +437,7 @@
   <!-- FAQ Accordion Section -->
   <section class="section" id="faq">
     <div class="container">
-      <div class="section-header">
+      <div class="section-header reveal-on-scroll">
         <span class="section-tag">Answers</span>
         <h2 class="section-title">Frequently asked <em>questions.</em></h2>
         <p class="section-description">
@@ -401,7 +446,7 @@
       </div>
 
       <div class="faq-grid">
-        <div class="faq-item active">
+        <div class="faq-item active reveal-on-scroll stagger-1">
           <div class="faq-question">
             <span>Do I need a phone number or email address to use Bharosa?</span>
             <span class="faq-icon">+</span>
@@ -411,7 +456,7 @@
           </div>
         </div>
 
-        <div class="faq-item">
+        <div class="faq-item reveal-on-scroll stagger-2">
           <div class="faq-question">
             <span>How do I connect with friends and contacts?</span>
             <span class="faq-icon">+</span>
@@ -421,7 +466,7 @@
           </div>
         </div>
 
-        <div class="faq-item">
+        <div class="faq-item reveal-on-scroll stagger-3">
           <div class="faq-question">
             <span>When will the iOS version be released?</span>
             <span class="faq-icon">+</span>
@@ -431,7 +476,7 @@
           </div>
         </div>
 
-        <div class="faq-item">
+        <div class="faq-item reveal-on-scroll stagger-4">
           <div class="faq-question">
             <span>Can the server operator or ISP read my chats or media?</span>
             <span class="faq-icon">+</span>
@@ -447,7 +492,7 @@
   <!-- Download Call-to-Action Section (Lavender Container) -->
   <section class="section" id="download">
     <div class="container">
-      <div class="download-cta-box" id="ios-notice">
+      <div class="download-cta-box reveal-on-scroll reveal-scale" id="ios-notice">
         <div class="pill-badge" style="background: rgba(255,255,255,0.7); color: var(--primary-ultraviolet);">
           🚀 Production Release v1.0.0
         </div>
