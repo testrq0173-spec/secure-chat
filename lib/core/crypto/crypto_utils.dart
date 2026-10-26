@@ -80,12 +80,18 @@ class CryptoUtils {
   /// Pads message plaintext bytes to the nearest bucket size using length prefix + random padding
   static Uint8List padToBucket(Uint8List plaintext) {
     final originalLength = plaintext.length;
-    int targetBucket = paddingBuckets.last;
+    int targetBucket = -1;
     for (final bucket in paddingBuckets) {
       if (originalLength + 4 <= bucket) {
         targetBucket = bucket;
         break;
       }
+    }
+
+    if (targetBucket == -1) {
+      // For large media payloads > 64KB, pad to nearest 512 bytes
+      final remainder = (originalLength + 4) % 512;
+      targetBucket = remainder == 0 ? (originalLength + 4) : (originalLength + 4 + (512 - remainder));
     }
 
     // Allocate target bucket

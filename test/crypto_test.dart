@@ -22,6 +22,15 @@ void main() {
       expect(CryptoUtils.utf8String(unpadded), equals('Hello, zero-knowledge postbox!'));
     });
 
+    test('Pads and unpads large media payload (>64KB) without RangeError', () {
+      final largeBytes = CryptoUtils.randomBytes(150 * 1024); // 150 KB
+      final padded = CryptoUtils.padToBucket(largeBytes);
+      expect(padded.length, greaterThanOrEqualTo(largeBytes.length + 4));
+
+      final unpadded = CryptoUtils.unpadFromBucket(padded);
+      expect(unpadded, equals(largeBytes));
+    });
+
     test('Generates 128-bit random token capability for queue IDs', () {
       final token = CryptoUtils.randomToken(16);
       expect(token.isNotEmpty, isTrue);
