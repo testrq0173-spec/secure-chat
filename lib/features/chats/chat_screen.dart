@@ -454,55 +454,77 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
 
-          // Message Bubbles List
+          // Message Bubbles List with Pull-to-Refresh
           Expanded(
-            child: messagesAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.ultraviolet),
-              ),
-              error: (err, _) => Center(child: Text('Error: $err')),
-              data: (messages) {
-                if (messages.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.lock_rounded, size: 36, color: AppColors.ultraviolet),
-                          const SizedBox(height: 12),
-                          Text('End-to-End Encrypted', style: AppTypography.title.copyWith(fontSize: 16)),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Messages and calls are secured with Double Ratchet forward secrecy. No one outside of this chat, not even the server, can read them.',
-                            textAlign: TextAlign.center,
-                            style: AppTypography.caption,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = messages[index];
-                    final isMe = msg.senderId == 'self';
-
-                    return ChatBubble(
-                      message: msg,
-                      isMe: isMe,
-                      onLongPress: () => _showMessageActions(msg, isMe),
-                      onReplyTap: () {
-                        // Highlight or scroll to reply
-                      },
-                    );
-                  },
-                );
+            child: RefreshIndicator(
+              color: AppColors.ultraviolet,
+              backgroundColor: AppColors.white,
+              onRefresh: () async {
+                await ref.read(chatRepositoryProvider).ensureListening(widget.conversationId);
+                await ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+                await _loadConversation();
               },
+              child: messagesAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.ultraviolet),
+                ),
+                error: (err, _) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: 400,
+                    child: Center(child: Text('Error: $err')),
+                  ),
+                ),
+                data: (messages) {
+                  if (messages.isEmpty) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.lock_rounded, size: 36, color: AppColors.ultraviolet),
+                                const SizedBox(height: 12),
+                                Text('End-to-End Encrypted', style: AppTypography.title.copyWith(fontSize: 16)),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Messages and calls are secured with Double Ratchet forward secrecy. No one outside of this chat, not even the server, can read them.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.caption,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      final isMe = msg.senderId == 'self';
+
+                      return ChatBubble(
+                        message: msg,
+                        isMe: isMe,
+                        onLongPress: () => _showMessageActions(msg, isMe),
+                        onReplyTap: () {
+                          // Highlight or scroll to reply
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
 

@@ -34,54 +34,72 @@ class PendingRequestsScreen extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: requestsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.ultraviolet),
-        ),
-        error: (e, _) => Center(
-          child: Text('Error loading requests: $e'),
-        ),
-        data: (requests) {
-          if (requests.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: AppColors.lavender,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person_add_disabled_rounded,
-                      size: 48,
-                      color: AppColors.ultraviolet,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('No Pending Requests', style: AppTypography.title),
-                  const SizedBox(height: 8),
-                  Text(
-                    'When someone scans your QR or connects with your link,\ntheir request will appear here.',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.caption,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: requests.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final conv = requests[index];
-              return _buildRequestTile(context, ref, conv);
-            },
-          );
+      body: RefreshIndicator(
+        color: AppColors.ultraviolet,
+        backgroundColor: AppColors.white,
+        onRefresh: () async {
+          await ref.read(pendingRequestsProvider.notifier).loadPendingRequests();
         },
+        child: requestsAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.ultraviolet),
+          ),
+          error: (e, _) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: SizedBox(
+              height: 400,
+              child: Center(child: Text('Error loading requests: $e')),
+            ),
+          ),
+          data: (requests) {
+            if (requests.isEmpty) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: AppColors.lavender,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.person_add_disabled_rounded,
+                            size: 48,
+                            color: AppColors.ultraviolet,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text('No Pending Requests', style: AppTypography.title),
+                        const SizedBox(height: 8),
+                        Text(
+                          'When someone scans your QR or connects with your link,\ntheir request will appear here.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.caption,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              itemCount: requests.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final conv = requests[index];
+                return _buildRequestTile(context, ref, conv);
+              },
+            );
+          },
+        ),
       ),
     );
   }

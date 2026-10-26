@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import '../../app/providers.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../data/models/contact.dart';
 import '../../data/models/conversation.dart';
 
 class ChatListScreen extends ConsumerStatefulWidget {
@@ -19,17 +21,46 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedFilterIndex = 0; // 0: All, 1: Direct, 2: Groups, 3: Saved Notes
   bool _isSearching = false;
+  StreamSubscription<Contact>? _connectionRequestSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatRepositoryProvider).startListeningToQueues();
+      _connectionRequestSub = ref.read(chatRepositoryProvider).onConnectionRequest.listen((contact) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.person_add_rounded, color: AppColors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'New request from ${contact.displayName}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: AppColors.lavender,
+              onPressed: () => context.push('/requests'),
+            ),
+            backgroundColor: AppColors.ink,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      });
     });
   }
 
   @override
   void dispose() {
+    _connectionRequestSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -126,49 +157,71 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               pendingRequestsAsync.value!.isNotEmpty)
             _buildPendingRequestsBanner(pendingRequestsAsync.value!.length),
 
-          // Conversation List
+          // Conversation List with Pull-to-Refresh
           Expanded(
-            child: conversationsAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.ultraviolet),
-              ),
-              error: (err, _) => Center(child: Text('Error: $err')),
-              data: (conversations) {
-
-                // Apply Search Filter
-                var list = conversations;
-                final query = _searchController.text.trim().toLowerCase();
-                if (query.isNotEmpty) {
-                  list = list.where((c) {
-                    final titleMatch = c.title.toLowerCase().contains(query);
-                    final msgMatch = (c.lastMessageText ?? '').toLowerCase().contains(query);
-                    return titleMatch || msgMatch;
-                  }).toList();
-                }
-
-                // Apply Tab Filter
-                if (_selectedFilterIndex == 1) {
-                  list = list.where((c) => c.type == ConversationType.direct).toList();
-                } else if (_selectedFilterIndex == 2) {
-                  list = list.where((c) => c.type == ConversationType.group).toList();
-                } else if (_selectedFilterIndex == 3) {
-                  list = list.where((c) => c.type == ConversationType.notes).toList();
-                }
-
-                if (list.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return ListView.separated(
-                  itemCount: list.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final conv = list[index];
-                    return _buildConversationTile(conv);
-                  },
-                );
+            child: RefreshIndicator(
+              color: AppColors.ultraviolet,
+              backgroundColor: AppColors.white,
+              onRefresh: () async {
+                await ref.read(chatRepositoryProvider).startListeningToQueues();
+                await ref.read(conversationsProvider.notifier).loadConversations();
+                await ref.read(pendingRequestsProvider.notifier).loadPendingRequests();
               },
+              child: conversationsAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.ultraviolet),
+                ),
+                error: (err, _) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: 400,
+                    child: Center(child: Text('Error: $err')),
+                  ),
+                ),
+                data: (conversations) {
+
+                  // Apply Search Filter
+                  var list = conversations;
+                  final query = _searchController.text.trim().toLowerCase();
+                  if (query.isNotEmpty) {
+                    list = list.where((c) {
+                      final titleMatch = c.title.toLowerCase().contains(query);
+                      final msgMatch = (c.lastMessageText ?? '').toLowerCase().contains(query);
+                      return titleMatch || msgMatch;
+                    }).toList();
+                  }
+
+                  // Apply Tab Filter
+                  if (_selectedFilterIndex == 1) {
+                    list = list.where((c) => c.type == ConversationType.direct).toList();
+                  } else if (_selectedFilterIndex == 2) {
+                    list = list.where((c) => c.type == ConversationType.group).toList();
+                  } else if (_selectedFilterIndex == 3) {
+                    list = list.where((c) => c.type == ConversationType.notes).toList();
+                  }
+
+                  if (list.isEmpty) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.65,
+                        child: _buildEmptyState(),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: list.length,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final conv = list[index];
+                      return _buildConversationTile(conv);
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ],

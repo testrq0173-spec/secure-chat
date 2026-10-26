@@ -28,6 +28,7 @@ class ChatRepository {
 
   final Map<String, StreamSubscription> _queueSubscriptions = {};
   final StreamController<Message> _incomingMessageStream = StreamController<Message>.broadcast();
+  final StreamController<Contact> _connectionRequestStream = StreamController<Contact>.broadcast();
   final Map<String, List<String?>> _chunkBuffers = {};
   final Map<String, String> _completedMediaFiles = {};
   Timer? _heartbeatTimer;
@@ -43,6 +44,7 @@ class ChatRepository {
         _connectionRepository = connectionRepository;
 
   Stream<Message> get onIncomingMessage => _incomingMessageStream.stream;
+  Stream<Contact> get onConnectionRequest => _connectionRequestStream.stream;
 
   /// Initializes listeners for all active contact receiving queues & pending invite queues
   Future<void> startListeningToQueues() async {
@@ -80,6 +82,18 @@ class ChatRepository {
       final activeContacts = await _databaseService.getAllContacts();
       for (final c in activeContacts) {
         await _drainContactQueue(c);
+      }
+      final db = await _databaseService.database;
+      final inviteRows = await db.query(
+        'settings',
+        where: "key LIKE 'pending_invite_%'",
+      );
+      for (final row in inviteRows) {
+        try {
+          final meta = jsonDecode(row['value'] as String) as Map<String, dynamic>;
+          final inboxQueueId = meta['inboxQueueId'] as String;
+          await _drainInviteQueue(inboxQueueId);
+        } catch (_) {}
       }
     });
   }
@@ -141,6 +155,7 @@ class ChatRepository {
           );
           if (contact != null) {
             _listenToContactQueue(contact);
+            _connectionRequestStream.add(contact);
             _incomingMessageStream.add(Message(
               id: _uuid.v4(),
               conversationId: contact.id,
@@ -935,6 +950,7 @@ class ChatRepository {
     }
     _queueSubscriptions.clear();
     _incomingMessageStream.close();
+    _connectionRequestStream.close();
   }
 }
 

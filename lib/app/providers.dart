@@ -51,10 +51,35 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return repo;
 });
 
-// --- Pending Requests & Blocked Contacts Providers ---
-final pendingRequestsProvider = FutureProvider<List<Conversation>>((ref) async {
-  final db = ref.watch(databaseServiceProvider);
-  return await db.getPendingRequests();
+// --- Pending Requests Notifier (Auto-updates in real-time) ---
+class PendingRequestsNotifier extends Notifier<AsyncValue<List<Conversation>>> {
+  @override
+  AsyncValue<List<Conversation>> build() {
+    final chatRepo = ref.watch(chatRepositoryProvider);
+    chatRepo.onIncomingMessage.listen((_) {
+      loadPendingRequests();
+    });
+    chatRepo.onConnectionRequest.listen((_) {
+      loadPendingRequests();
+    });
+    Future.microtask(() => loadPendingRequests());
+    return const AsyncValue.loading();
+  }
+
+  Future<void> loadPendingRequests() async {
+    try {
+      final db = ref.read(databaseServiceProvider);
+      final list = await db.getPendingRequests();
+      state = AsyncValue.data(list);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}
+
+final pendingRequestsProvider =
+    NotifierProvider<PendingRequestsNotifier, AsyncValue<List<Conversation>>>(() {
+  return PendingRequestsNotifier();
 });
 
 final blockedContactsProvider = FutureProvider<List<Contact>>((ref) async {
@@ -75,6 +100,9 @@ class ConversationsNotifier extends Notifier<AsyncValue<List<Conversation>>> {
   AsyncValue<List<Conversation>> build() {
     final chatRepo = ref.watch(chatRepositoryProvider);
     chatRepo.onIncomingMessage.listen((_) {
+      loadConversations();
+    });
+    chatRepo.onConnectionRequest.listen((_) {
       loadConversations();
     });
     Future.microtask(() => loadConversations());
