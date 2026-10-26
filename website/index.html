@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bharosa — The World's Most Private Encrypted Messenger</title>
+  <meta name="description" content="Bharosa is a zero-knowledge private messaging application engineered with Double Ratchet forward secrecy, blinded capability queues, and zero identifiers. No phone numbers, no email, no central servers.">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Ambient Glowing Atmosphere -->
+  <div class="ambient-glow-1"></div>
+  <div class="ambient-glow-2"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- Sticky Navbar -->
+  <header class="navbar">
+    <div class="container nav-content">
+      <a href="#hero" class="brand">
+        <img src="assets/logo.png" alt="Bharosa Logo" class="brand-logo">
+        <span>Bharosa</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#features" class="nav-link">Features</a></li>
+          <li><a href="#security" class="nav-link">Security Architecture</a></li>
+          <li><a href="#comparison" class="nav-link">Comparison</a></li>
+          <li><a href="#tech-specs" class="nav-link">Specifications</a></li>
+          <li><a href="#faq" class="nav-link">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="#download" class="btn btn-primary download-apk-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Download APK
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section" id="hero">
+    <div class="container">
+      <div class="pill-badge">
+        <span class="pulsing-dot"></span>
+        Zero-Knowledge Encrypted Messaging
+      </div>
+
+      <h1 class="hero-title">
+        Private Conversations.<br>
+        <span class="gradient-text">Absolute Peace of Mind.</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Engineered with Double Ratchet cryptographic forward secrecy and SimpleX-inspired blinded capability queues. No phone numbers, no emails, and zero metadata stored.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="btn btn-primary download-apk-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4126 13.8533 8.081 12 8.081s-3.5902.3316-5.1368.8697L4.8409 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+          </svg>
+          Download for Android (.APK)
+        </a>
+
+        <a href="#ios-notice" class="ios-notice-badge ios-trigger">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 1.01-2.87-.9.04-2.02.6-2.67 1.36-.58.68-.99 1.74-.94 2.8.99.08 2-.54 2.6-1.29z"/>
+          </svg>
+          iOS Version
+          <span class="ios-tag">Coming Soon</span>
+        </a>
+      </div>
+
+      <p class="checksum-info">v1.0.0 &bull; Android 8.0+ &bull; Clean Architecture &bull; SHA-256 Verified</p>
+
+      <!-- 3D Smartphone Hero Visual -->
+      <div class="hero-showcase">
+        <img src="assets/hero_mockup.jpg" alt="Bharosa App Interface Showcase on Smartphone">
+      </div>
+
+      <!-- Stat Highlights Banner -->
+      <div class="stats-banner">
+        <div class="stat-card">
+          <div class="stat-number gradient-text-purple">0</div>
+          <div class="stat-label">Identifiers Required (No Phone / Email)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number gradient-text">256-bit</div>
+          <div class="stat-label">Double Ratchet Forward Secrecy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number gradient-text-purple">0s</div>
+          <div class="stat-label">Server Packet Retention (Instant Wipe)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number gradient-text">100%</div>
+          <div class="stat-label">Blinded Capability Queues</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bento Grid Features Section -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Core Architecture</span>
+        <h2 class="section-title">Designed for True Cryptographic Sovereignty</h2>
+        <p class="section-description">
+          Conventional messengers log who you talk to, when you talk, and what devices you use. Bharosa removes the server entirely from knowing your social graph.
+        </p>
+      </div>
+
+      <div class="bento-grid">
+        <!-- Card 1: Zero Phone Numbers -->
+        <div class="bento-card bento-col-8">
+          <div class="card-icon">🔑</div>
+          <h3 class="card-title">Zero Phone Numbers. Zero Accounts.</h3>
+          <p class="card-text">
+            Your identity is simply an ephemeral Ed25519 cryptographic keypair generated entirely on your device. No SIM swapping, no government data subpoenas, and no phone directory harvesting.
+          </p>
+
+          <div class="interactive-simulator">
+            <div class="code-row">
+              <span class="code-label">Identity Type:</span>
+              <span class="code-value green">Decentralized Curve25519 Key</span>
+            </div>
+            <div class="code-row">
+              <span class="code-label">Public Key Fingerprint:</span>
+              <span class="code-value purple" id="sim-pub-key">0x7a3f819c...b04e</span>
+            </div>
+            <div class="code-row">
+              <span class="code-label">Private Key Storage:</span>
+              <span class="code-value" id="sim-priv-key">Vault-Encrypted (Hardware Keystore)</span>
+            </div>
+            <div class="code-row">
+              <span class="code-label">Blinded Queue Token:</span>
+              <span class="code-value green" id="sim-queue-token">q_f48d91b2c7e0</span>
+            </div>
+            <div class="code-row">
+              <span class="code-label">Safety Number:</span>
+              <span class="code-value" id="sim-safety-code">849-210 (Double Ratchet Verified)</span>
+            </div>
+            <div style="margin-top: 14px; text-align: right;">
+              <button class="btn btn-secondary" id="regenerate-keys-btn" style="padding: 6px 14px; font-size: 0.8rem;">Regenerate Ephemeral Keys</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Double Ratchet -->
+        <div class="bento-card bento-col-4">
+          <div class="card-icon">⚡</div>
+          <h3 class="card-title">Double Ratchet Forward Secrecy</h3>
+          <p class="card-text">
+            Every single message creates a new ephemeral encryption key that is permanently destroyed immediately after decryption. Even a compromised device cannot decrypt past messages.
+          </p>
+          <div style="margin-top: auto; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 10px; font-size: 0.82rem; color: var(--accent-lavender);">
+            &bull; Diffie-Hellman Key Exchange<br>
+            &bull; Symmetric KDF Ratchet<br>
+            &bull; Future & Backward Secrecy
+          </div>
+        </div>
+
+        <!-- Card 3: WhatsApp-Grade Media Viewer -->
+        <div class="bento-card bento-col-4">
+          <div class="card-icon">🎬</div>
+          <h3 class="card-title">Full Video & Photo Suite</h3>
+          <p class="card-text">
+            Enjoy full pinch-to-zoom (up to 5x), timeline scrubbing, interactive reply gestures, and HD voice messaging—all fully encrypted.
+          </p>
+        </div>
+
+        <!-- Card 4: Swipe to Reply & Highlight -->
+        <div class="bento-card bento-col-4">
+          <div class="card-icon">💬</div>
+          <h3 class="card-title">Fluid Swipe-to-Reply</h3>
+          <p class="card-text">
+            Swipe right on any message with haptic response to quote-reply. Click any quote banner to auto-scroll with our signature soft lavender glow highlight.
+          </p>
+        </div>
+
+        <!-- Card 5: Biometric App Lock Vault -->
+        <div class="bento-card bento-col-4">
+          <div class="card-icon">🛡️</div>
+          <h3 class="card-title">Biometric Vault & Lock</h3>
+          <p class="card-text">
+            Hardware-backed Face Unlock, Fingerprint, and 4-digit PIN authentication protecting local SQLite encrypted vaults with zero cloud storage.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Security Architecture Deep-Dive -->
+  <section class="section" id="security" style="background: rgba(11, 9, 18, 0.4);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Zero-Knowledge Architecture</span>
+        <h2 class="section-title">Blinded Capability Queues</h2>
+        <p class="section-description">
+          Unlike WhatsApp or Signal where the server knows who sent a message to whom, Bharosa uses one-way blinded queue tokens. The server acts as an illiterate postbox.
+        </p>
+      </div>
+
+      <div class="architecture-box">
+        <img src="assets/security_diagram.jpg" alt="Blinded Zero Knowledge Queue Architecture Diagram">
+      </div>
+
+      <div class="arch-steps-grid">
+        <div class="arch-step-card">
+          <div class="step-num">Step 01</div>
+          <h4 class="step-title">Queue Capability Generation</h4>
+          <p class="step-desc">Each contact pair creates two decoupled unidirectional random 128-bit queue capabilities (A&rarr;B and B&rarr;A). Neither queue reveals the other.</p>
+        </div>
+        <div class="arch-step-card">
+          <div class="step-num">Step 02</div>
+          <h4 class="step-title">Double Outer Encryption</h4>
+          <p class="step-desc">Packets are sealed first with the contact's Double Ratchet key, then double-wrapped with the transport-level queue capability key.</p>
+        </div>
+        <div class="arch-step-card">
+          <div class="step-num">Step 03</div>
+          <h4 class="step-title">Zero-Retention Wipe</h4>
+          <p class="step-desc">As soon as the recipient device pulls the packet, it is instantly deleted from the relay server with zero logs or footprints.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Matrix Section -->
+  <section class="section" id="comparison">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Feature Audit</span>
+        <h2 class="section-title">How Bharosa Compares</h2>
+        <p class="section-description">
+          See why blinded queue architecture offers real anonymity compared to commercial messengers.
+        </p>
+      </div>
+
+      <div class="comparison-table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Privacy Dimension</th>
+              <th class="highlight">Bharosa</th>
+              <th>Signal</th>
+              <th>WhatsApp</th>
+              <th>Telegram</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Phone Number Required</strong></td>
+              <td class="highlight"><span class="status-badge-yes">&check; Never (0 Identifiers)</span></td>
+              <td><span class="status-badge-partial">&sim; Required for signup</span></td>
+              <td><span class="status-badge-no">&cross; Mandatory</span></td>
+              <td><span class="status-badge-no">&cross; Mandatory</span></td>
+            </tr>
+            <tr>
+              <td><strong>Metadata Exposure</strong></td>
+              <td class="highlight"><span class="status-badge-yes">&check; Zero (Blinded Queues)</span></td>
+              <td><span class="status-badge-partial">&sim; Sealed sender</span></td>
+              <td><span class="status-badge-no">&cross; High (Meta graph)</span></td>
+              <td><span class="status-badge-no">&cross; High (Server logs)</span></td>
+            </tr>
+            <tr>
+              <td><strong>Default End-to-End Encryption</strong></td>
+              <td class="highlight"><span class="status-badge-yes">&check; 100% Always Active</span></td>
+              <td><span class="status-badge-yes">&check; Always Active</span></td>
+              <td><span class="status-badge-yes">&check; Active</span></td>
+              <td><span class="status-badge-no">&cross; Optional only</span></td>
+            </tr>
+            <tr>
+              <td><strong>Per-Message Forward Secrecy</strong></td>
+              <td class="highlight"><span class="status-badge-yes">&check; Double Ratchet</span></td>
+              <td><span class="status-badge-yes">&check; Double Ratchet</span></td>
+              <td><span class="status-badge-yes">&check; Signal Protocol</span></td>
+              <td><span class="status-badge-no">&cross; Only secret chats</span></td>
+            </tr>
+            <tr>
+              <td><strong>Server Message Storage</strong></td>
+              <td class="highlight"><span class="status-badge-yes">&check; 0 seconds (Instant wipe)</span></td>
+              <td><span class="status-badge-yes">&check; Ephemeral queue</span></td>
+              <td><span class="status-badge-partial">&sim; Deleted upon sync</span></td>
+              <td><span class="status-badge-no">&cross; Permanent cloud</span></td>
+            </tr>
+            <tr>
+              <td><strong>Swipe to Reply & Video Scrubbing</strong></td>
+              <td class="highlight"><span class="status-badge-yes">&check; Native WhatsApp-Style</span></td>
+              <td><span class="status-badge-yes">&check; Basic</span></td>
+              <td><span class="status-badge-yes">&check; Yes</span></td>
+              <td><span class="status-badge-yes">&check; Yes</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Specifications -->
+  <section class="section" id="tech-specs" style="background: rgba(12, 10, 18, 0.4);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Specifications</span>
+        <h2 class="section-title">Cryptographic Stack</h2>
+        <p class="section-description">
+          Built according to open, peer-reviewed industry standard algorithms.
+        </p>
+      </div>
+
+      <div class="bento-grid">
+        <div class="bento-card bento-col-6">
+          <h3 class="card-title">🔐 Symmetric & Key Exchange</h3>
+          <p class="card-text">
+            &bull; <strong>Key Agreement:</strong> X25519 Curve25519 (ECDH)<br>
+            &bull; <strong>Symmetric Cipher:</strong> ChaCha20-Poly1305 (256-bit AEAD)<br>
+            &bull; <strong>Key Derivation:</strong> HKDF-SHA256 with domain separation strings<br>
+            &bull; <strong>Authentication:</strong> Ed25519 Digital Signatures
+          </p>
+        </div>
+        <div class="bento-card bento-col-6">
+          <h3 class="card-title">📦 Storage & Transport</h3>
+          <p class="card-text">
+            &bull; <strong>Local Database:</strong> SQLite with AES-256 local encryption<br>
+            &bull; <strong>Key Material:</strong> Android Keystore & iOS Keychain Secure Enclave<br>
+            &bull; <strong>Packet Transport:</strong> WebSocket & Cloud Firestore Blinded Queues<br>
+            &bull; <strong>Push Notifications:</strong> Zero-Payload Silent Data FCM Pings
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Accordion Section -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Answers</span>
+        <h2 class="section-title">Frequently Asked Questions</h2>
+        <p class="section-description">
+          Everything you need to know about Bharosa's privacy and setup.
+        </p>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-item active">
+          <div class="faq-question">
+            <span>Do I need a phone number or email address to use Bharosa?</span>
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            No. Bharosa never asks for your phone number, email, or any identifying credentials. Your identity is a cryptographic keypair created directly on your device.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>How do I connect with friends and contacts?</span>
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            You connect via QR Code scan or by sharing a single-use connection invitation link. Once connected, your devices establish blinded queues without central registration.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>When will the iOS version be released?</span>
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            The iOS version is currently undergoing final internal testing on Apple TestFlight and will be launched on the App Store shortly. Android users can download the ready-to-run APK right now.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Can the server operator or ISP read my chats or media?</span>
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            No. All messages, photos, videos, voice notes, and files are protected with Double Ratchet end-to-end encryption. The server only sees encrypted ciphertext and drops the packet as soon as it is delivered.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Call-to-Action Section -->
+  <section class="section" id="download">
+    <div class="container">
+      <div class="download-cta-box" id="ios-notice">
+        <div class="pill-badge" style="background: rgba(255,255,255,0.1); color: #fff;">
+          🚀 Production Release v1.0.0
+        </div>
+        <h2 class="download-cta-title">Take Back Your Privacy Today</h2>
+        <p class="download-cta-desc">
+          Download the Bharosa APK directly to your Android device. Fast, lightweight, and completely untracked.
+        </p>
+
+        <div class="download-btn-wrapper">
+          <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="btn btn-primary download-apk-btn" style="padding: 16px 36px; font-size: 1.1rem;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4126 13.8533 8.081 12 8.081s-3.5902.3316-5.1368.8697L4.8409 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+            </svg>
+            Download Android APK (Direct)
+          </a>
+
+          <a href="#" class="btn btn-secondary ios-trigger" style="padding: 16px 28px; font-size: 1.05rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 1.01-2.87-.9.04-2.02.6-2.67 1.36-.58.68-.99 1.74-.94 2.8.99.08 2-.54 2.6-1.29z"/>
+            </svg>
+            Apple iOS &bull; Coming Soon
+          </a>
+        </div>
+
+        <p class="checksum-info">
+          Direct Download Link: <code>downloads/bharosa-v1.0.0.apk</code> &bull; Built with Flutter 3.13 &bull; Double Ratchet E2EE
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Toast Notification Modal -->
+  <div id="toast" class="toast">
+    <span style="font-size: 20px;">🛡️</span>
+    <span id="toast-text">Notification message</span>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="brand">
+          <img src="assets/logo.png" alt="Bharosa Logo" class="brand-logo" style="width: 28px; height: 28px;">
+          <span>Bharosa Messenger</span>
+        </div>
+
+        <ul class="footer-links">
+          <li><a href="#hero" class="footer-link">Home</a></li>
+          <li><a href="#features" class="footer-link">Features</a></li>
+          <li><a href="#security" class="footer-link">Security Whitepaper</a></li>
+          <li><a href="#faq" class="footer-link">FAQ</a></li>
+          <li><a href="downloads/bharosa-v1.0.0.apk" download class="footer-link">Download</a></li>
+        </ul>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 0.8rem;">
+        <p>&copy; 2026 Bharosa Messenger. Open-source, zero-knowledge sovereign communication.</p>
+        <p style="display: flex; align-items: center; gap: 6px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+          All Relay Queues Operational
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

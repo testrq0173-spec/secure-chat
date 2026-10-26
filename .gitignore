@@ -52,3 +52,4 @@ app.*.map.json
 .widget_preview/
 
 functions/node_modules
+website/downloads/*.apk
