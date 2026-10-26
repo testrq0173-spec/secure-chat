@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/chat_bubble.dart';
 import '../../core/widgets/chat_composer.dart';
+import '../../core/widgets/swipe_to_reply.dart';
 import '../../data/models/conversation.dart';
 import '../../data/models/message.dart';
 
@@ -25,6 +27,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Conversation? _conversation;
   Message? _replyingMessage;
   bool _isLoading = true;
+  String? _highlightedMessageId;
+  Timer? _highlightTimer;
+  final Map<String, GlobalKey> _messageKeys = {};
 
   @override
   void initState() {
@@ -37,6 +42,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -72,18 +78,93 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  String _getMessageReplyPreview(Message message) {
+    if (message.content.trim().isNotEmpty) {
+      if (message.type == MessageType.image) return '📷 ${message.content.trim()}';
+      if (message.type == MessageType.video) return '🎥 ${message.content.trim()}';
+      return message.content.trim();
+    }
+    switch (message.type) {
+      case MessageType.image:
+        return '📷 Photo';
+      case MessageType.video:
+        return '🎥 Video';
+      case MessageType.voice:
+        return '🎤 Voice note';
+      case MessageType.file:
+        return '📄 ${message.fileName ?? "Document"}';
+      case MessageType.text:
+        return 'Message';
+    }
+  }
+
+  void _scrollToAndHighlight(String targetMessageId, List<Message> messages) {
+    final targetIndex = messages.indexWhere((m) => m.id == targetMessageId);
+    if (targetIndex == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Original message not found in this chat')),
+      );
+      return;
+    }
+
+    setState(() {
+      _highlightedMessageId = targetMessageId;
+    });
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) {
+        setState(() {
+          _highlightedMessageId = null;
+        });
+      }
+    });
+
+    final targetKey = _messageKeys[targetMessageId];
+    if (targetKey?.currentContext != null) {
+      Scrollable.ensureVisible(
+        targetKey!.currentContext!,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+        alignment: 0.5,
+      );
+    } else if (_scrollController.hasClients) {
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      final targetOffset = (targetIndex / messages.length) * maxExtent;
+      _scrollController.animateTo(
+        targetOffset.clamp(0.0, maxExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      ).then((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = _messageKeys[targetMessageId]?.currentContext;
+          if (ctx != null) {
+            Scrollable.ensureVisible(
+              ctx,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              alignment: 0.5,
+            );
+          }
+        });
+      });
+    }
+  }
+
   Future<void> _sendMessage(String text) async {
     final chatRepo = ref.read(chatRepositoryProvider);
     final reply = _replyingMessage;
     setState(() => _replyingMessage = null);
+
+    final replyText = reply != null ? _getMessageReplyPreview(reply) : null;
+    final replySender = reply != null ? (reply.senderId == 'self' ? 'You' : reply.senderName) : null;
 
     try {
       await chatRepo.sendMessage(
         conversationId: widget.conversationId,
         content: text,
         replyToId: reply?.id,
-        replyToText: reply?.content,
-        replyToSender: reply?.senderName,
+        replyToText: replyText,
+        replyToSender: replySender,
       );
     } catch (e) {
       if (mounted) {
@@ -109,6 +190,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     int? mediaDurationMs,
   }) async {
     final chatRepo = ref.read(chatRepositoryProvider);
+    final reply = _replyingMessage;
+    setState(() => _replyingMessage = null);
+
+    final replyText = reply != null ? _getMessageReplyPreview(reply) : null;
+    final replySender = reply != null ? (reply.senderId == 'self' ? 'You' : reply.senderName) : null;
+
     chatRepo.sendMessage(
       conversationId: widget.conversationId,
       content: '',
@@ -117,6 +204,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       fileName: fileName,
       fileSize: fileSize,
       mediaDurationMs: mediaDurationMs,
+      replyToId: reply?.id,
+      replyToText: replyText,
+      replyToSender: replySender,
     ).then((_) {
       if (mounted) {
         ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
@@ -513,35 +603,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       final msg = messages[index];
                       final isMe = msg.senderId == 'self';
 
-                      return ChatBubble(
-                        message: msg,
+                      return SwipeToReply(
                         isMe: isMe,
-                        onLongPress: () => _showMessageActions(msg, isMe),
-                        onReplyTap: () {
+                        onReply: () {
                           setState(() => _replyingMessage = msg);
                         },
-                        onDelete: () async {
-                          await ref.read(chatRepositoryProvider).deleteForMe(msg.id);
-                          if (mounted) {
-                            ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
-                            ref.read(conversationsProvider.notifier).loadConversations();
-                          }
-                        },
-                        onSendReply: (replyText) async {
-                          final chatRepo = ref.read(chatRepositoryProvider);
-                          await chatRepo.sendMessage(
-                            conversationId: widget.conversationId,
-                            content: replyText,
-                            replyToId: msg.id,
-                            replyToSender: msg.senderName,
-                            replyToText: msg.content.isNotEmpty ? msg.content : (msg.fileName ?? 'Media'),
-                          );
-                          if (mounted) {
-                            ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
-                            ref.read(conversationsProvider.notifier).loadConversations();
-                            _scrollToBottom();
-                          }
-                        },
+                        child: ChatBubble(
+                          key: _messageKeys.putIfAbsent(msg.id, () => GlobalKey()),
+                          message: msg,
+                          isMe: isMe,
+                          isHighlighted: _highlightedMessageId == msg.id,
+                          onLongPress: () => _showMessageActions(msg, isMe),
+                          onSwipeReply: () {
+                            setState(() => _replyingMessage = msg);
+                          },
+                          onReplyTap: () {
+                            if (msg.replyToId != null) {
+                              _scrollToAndHighlight(msg.replyToId!, messages);
+                            }
+                          },
+                          onDelete: () async {
+                            await ref.read(chatRepositoryProvider).deleteForMe(msg.id);
+                            if (mounted) {
+                              ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+                              ref.read(conversationsProvider.notifier).loadConversations();
+                            }
+                          },
+                          onSendReply: (replyText) async {
+                            final chatRepo = ref.read(chatRepositoryProvider);
+                            final replyPreview = _getMessageReplyPreview(msg);
+                            await chatRepo.sendMessage(
+                              conversationId: widget.conversationId,
+                              content: replyText,
+                              replyToId: msg.id,
+                              replyToSender: msg.senderId == 'self' ? 'You' : msg.senderName,
+                              replyToText: replyPreview,
+                            );
+                            if (mounted) {
+                              ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+                              ref.read(conversationsProvider.notifier).loadConversations();
+                              _scrollToBottom();
+                            }
+                          },
+                        ),
                       );
                     },
                   );
@@ -559,8 +663,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             _buildWaitingApprovalBar()
           else
             ChatComposer(
-              replyToSender: _replyingMessage?.senderName,
-              replyToText: _replyingMessage?.content,
+              replyToSender: _replyingMessage != null
+                  ? (_replyingMessage!.senderId == 'self' ? 'You' : _replyingMessage!.senderName)
+                  : null,
+              replyToText: _replyingMessage != null ? _getMessageReplyPreview(_replyingMessage!) : null,
               onCancelReply: () => setState(() => _replyingMessage = null),
               onSendMessage: _sendMessage,
               onSendMedia: _sendMedia,

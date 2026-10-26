@@ -390,11 +390,15 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> with SingleTicker
 
                         // Reply Bar
                         GestureDetector(
-                          onTap: () {
-                            if (widget.onReply != null) {
+                          onVerticalDragEnd: (details) {
+                            if (details.primaryVelocity != null && details.primaryVelocity! < -150) {
                               Navigator.pop(context);
-                              widget.onReply!();
+                              widget.onReply?.call();
                             }
+                          },
+                          onTap: () {
+                            Navigator.pop(context);
+                            widget.onReply?.call();
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

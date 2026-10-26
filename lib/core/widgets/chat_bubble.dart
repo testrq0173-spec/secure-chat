@@ -15,9 +15,11 @@ class ChatBubble extends StatelessWidget {
   final List<String> reactions;
   final VoidCallback? onLongPress;
   final VoidCallback? onReplyTap;
+  final VoidCallback? onSwipeReply;
   final Function(String emoji)? onReactionTap;
   final VoidCallback? onDelete;
   final Function(String replyText)? onSendReply;
+  final bool isHighlighted;
 
   const ChatBubble({
     super.key,
@@ -26,9 +28,11 @@ class ChatBubble extends StatelessWidget {
     this.reactions = const [],
     this.onLongPress,
     this.onReplyTap,
+    this.onSwipeReply,
     this.onReactionTap,
     this.onDelete,
     this.onSendReply,
+    this.isHighlighted = false,
   });
 
   String _formatTime(int timestamp) {
@@ -78,8 +82,7 @@ class ChatBubble extends StatelessWidget {
           caption: message.content.isNotEmpty ? message.content : null,
           messageId: message.id,
           onReply: () {
-            Navigator.pop(context);
-            onReplyTap?.call();
+            onSwipeReply?.call();
           },
           onDelete: () {
             onDelete?.call();
@@ -128,11 +131,21 @@ class ChatBubble extends StatelessWidget {
     final metaColor = isMe ? AppColors.white.withValues(alpha: 0.75) : AppColors.grey500;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
       child: Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: GestureDetector(
-          onLongPress: onLongPress,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: isHighlighted
+                ? const Color(0xFFD0BCFF).withValues(alpha: 0.5)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: GestureDetector(
+            onLongPress: onLongPress,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.78,
@@ -546,6 +559,7 @@ class ChatBubble extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
