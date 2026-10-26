@@ -4,19 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bharosa — The World's Most Private Encrypted Messenger</title>
-  <meta name="description" content="Bharosa is a zero-knowledge private messaging application engineered with Double Ratchet forward secrecy, blinded capability queues, and zero identifiers. No phone numbers, no email, no central servers.">
-  <link rel="icon" type="image/png" href="assets/logo.png">
+  <meta name="description" content="Bharosa is an ultra-secure private messaging application engineered with Double Ratchet forward secrecy, blinded capability queues, and zero identifiers. No phone numbers, no email, no central servers.">
+  <link rel="icon" type="image/png" href="assets/proper_logo.png">
 
-  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <!-- Google Fonts: Geist & Instrument Serif Italic -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Ambient Glowing Atmosphere -->
+  <!-- Ambient Glowing Atmosphere (Light Theme) -->
   <div class="cursor-glow" id="cursorGlow"></div>
   <div class="ambient-glow-1" id="orb1"></div>
   <div class="ambient-glow-2" id="orb2"></div>
@@ -26,7 +26,7 @@
   <header class="navbar">
     <div class="container nav-content">
       <a href="#hero" class="brand">
-        <img src="assets/logo.png" alt="Bharosa Logo" class="brand-logo">
+        <img src="assets/proper_logo.png" alt="Bharosa Logo" class="brand-logo">
         <span>Bharosa</span>
       </a>
 
@@ -62,12 +62,12 @@
       </div>
 
       <h1 class="hero-title" id="heroTitle">
-        Private Conversations.<br>
-        <span class="gradient-text">Absolute Peace of Mind.</span>
+        Private conversations.<br>
+        <span class="gradient-text">Absolute <em>peace of mind.</em></span>
       </h1>
 
       <p class="hero-subtitle" id="heroSubtitle">
-        Engineered with Double Ratchet cryptographic forward secrecy and SimpleX-inspired blinded capability queues. No phone numbers, no emails, and zero metadata stored.
+        Engineered with Double Ratchet cryptographic forward secrecy and SimpleX-inspired blinded capability queues. No phone numbers, no email addresses, and zero metadata footprints.
       </p>
 
       <div class="hero-cta-group">
@@ -89,7 +89,7 @@
         </a>
       </div>
 
-      <p class="checksum-info">v1.0.0 &bull; Android 8.0+ &bull; Clean Architecture &bull; SHA-256 Verified</p>
+      <p class="checksum-info">v1.0.0 &bull; Android 8.0+ &bull; Double Ratchet E2EE &bull; Clean Architecture</p>
 
       <!-- 3D Parallax Smartphone Stage with Floating Badges -->
       <div class="hero-stage" id="heroStage">
@@ -107,7 +107,7 @@
         </div>
 
         <div class="hero-showcase" id="heroCard">
-          <img src="assets/hero_mockup.jpg" alt="Bharosa App Interface Showcase on Smartphone">
+          <img src="assets/hero_light.jpg" alt="Bharosa App Interface Showcase on Smartphone">
           <div class="hero-glare" id="heroGlare"></div>
         </div>
       </div>
@@ -134,7 +134,7 @@
     </div>
   </section>
 
-  <!-- Infinite Marquee Motion Ticker -->
+  <!-- Infinite Marquee Motion Ticker (Soft Lavender Strip) -->
   <div class="marquee-container">
     <div class="marquee-content">
       <div class="marquee-item"><span class="marquee-dot">✦</span> ZERO PHONE NUMBERS</div>
@@ -163,9 +163,9 @@
     <div class="container">
       <div class="section-header">
         <span class="section-tag">Core Architecture</span>
-        <h2 class="section-title">Designed for True Cryptographic Sovereignty</h2>
+        <h2 class="section-title">Designed for true <em>cryptographic sovereignty.</em></h2>
         <p class="section-description">
-          Conventional messengers log who you talk to, when you talk, and what devices you use. Bharosa removes the server entirely from knowing your social graph.
+          Conventional messengers log who you talk to, when you talk, and what devices you use. Bharosa eliminates central servers from ever knowing your social graph.
         </p>
       </div>
 
@@ -173,9 +173,9 @@
         <!-- Card 1: Zero Phone Numbers -->
         <div class="bento-card bento-col-8">
           <div class="card-icon">🔑</div>
-          <h3 class="card-title">Zero Phone Numbers. Zero Accounts.</h3>
+          <h3 class="card-title">Zero Phone Numbers. <em>Zero Accounts.</em></h3>
           <p class="card-text">
-            Your identity is simply an ephemeral Ed25519 cryptographic keypair generated entirely on your device. No SIM swapping, no government data subpoenas, and no phone directory harvesting.
+            Your identity is simply an ephemeral Ed25519 cryptographic keypair generated entirely on your device. No SIM swapping, no phone directory harvests, and zero surveillance.
           </p>
 
           <div class="interactive-simulator">
@@ -185,7 +185,7 @@
             </div>
             <div class="code-row">
               <span class="code-label">Public Key Fingerprint:</span>
-              <span class="code-value purple" id="sim-pub-key">0x7a3f819c...b04e</span>
+              <span class="code-value" id="sim-pub-key">0x7a3f819c...b04e</span>
             </div>
             <div class="code-row">
               <span class="code-label">Private Key Storage:</span>
@@ -200,7 +200,7 @@
               <span class="code-value" id="sim-safety-code">849-210 (Double Ratchet Verified)</span>
             </div>
             <div style="margin-top: 14px; text-align: right;">
-              <button class="btn btn-secondary" id="regenerate-keys-btn" style="padding: 6px 14px; font-size: 0.8rem;">Regenerate Ephemeral Keys</button>
+              <button class="btn btn-secondary" id="regenerate-keys-btn" style="padding: 6px 16px; font-size: 0.8rem;">Regenerate Ephemeral Keys</button>
             </div>
           </div>
         </div>
@@ -208,11 +208,11 @@
         <!-- Card 2: Double Ratchet -->
         <div class="bento-card bento-col-4">
           <div class="card-icon">⚡</div>
-          <h3 class="card-title">Double Ratchet Forward Secrecy</h3>
+          <h3 class="card-title">Double Ratchet <em>Forward Secrecy</em></h3>
           <p class="card-text">
-            Every single message creates a new ephemeral encryption key that is permanently destroyed immediately after decryption. Even a compromised device cannot decrypt past messages.
+            Every single message creates a new ephemeral encryption key that is permanently destroyed immediately after decryption. Even a compromised device cannot decrypt past history.
           </p>
-          <div style="margin-top: auto; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 10px; font-size: 0.82rem; color: var(--accent-lavender);">
+          <div style="margin-top: auto; padding: 14px; background: #f4eeff; border-radius: 12px; font-size: 0.84rem; color: var(--primary-dark); font-weight: 500;">
             &bull; Diffie-Hellman Key Exchange<br>
             &bull; Symmetric KDF Ratchet<br>
             &bull; Future & Backward Secrecy
@@ -224,7 +224,7 @@
           <div class="card-icon">🎬</div>
           <h3 class="card-title">Full Video & Photo Suite</h3>
           <p class="card-text">
-            Enjoy full pinch-to-zoom (up to 5x), timeline scrubbing, interactive reply gestures, and HD voice messaging—all fully encrypted.
+            Enjoy smooth pinch-to-zoom (up to 5x), timeline scrubbing, interactive reply gestures, and HD voice messaging—all fully encrypted.
           </p>
         </div>
 
@@ -249,14 +249,14 @@
     </div>
   </section>
 
-  <!-- Security Architecture Deep-Dive -->
-  <section class="section" id="security" style="background: rgba(11, 9, 18, 0.4);">
+  <!-- Security Architecture Deep-Dive (Dedicated Lavender Theme) -->
+  <section class="section section-lavender-theme" id="security">
     <div class="container">
       <div class="section-header">
         <span class="section-tag">Zero-Knowledge Architecture</span>
-        <h2 class="section-title">Blinded Capability Queues</h2>
+        <h2 class="section-title">Blinded capability queues. <em>Zero digital footprints.</em></h2>
         <p class="section-description">
-          Unlike WhatsApp or Signal where the server knows who sent a message to whom, Bharosa uses one-way blinded queue tokens. The server acts as an illiterate postbox.
+          Unlike WhatsApp or Signal where the server knows who sent a message to whom, Bharosa uses unidirectional blinded queue tokens. The server acts as a blind postbox.
         </p>
       </div>
 
@@ -289,7 +289,7 @@
     <div class="container">
       <div class="section-header">
         <span class="section-tag">Feature Audit</span>
-        <h2 class="section-title">How Bharosa Compares</h2>
+        <h2 class="section-title">How Bharosa <em>compares.</em></h2>
         <p class="section-description">
           See why blinded queue architecture offers real anonymity compared to commercial messengers.
         </p>
@@ -356,11 +356,11 @@
   </section>
 
   <!-- Technical Specifications -->
-  <section class="section" id="tech-specs" style="background: rgba(12, 10, 18, 0.4);">
+  <section class="section" id="tech-specs" style="background: #faf8ff;">
     <div class="container">
       <div class="section-header">
         <span class="section-tag">Specifications</span>
-        <h2 class="section-title">Cryptographic Stack</h2>
+        <h2 class="section-title">Cryptographic <em>stack.</em></h2>
         <p class="section-description">
           Built according to open, peer-reviewed industry standard algorithms.
         </p>
@@ -394,7 +394,7 @@
     <div class="container">
       <div class="section-header">
         <span class="section-tag">Answers</span>
-        <h2 class="section-title">Frequently Asked Questions</h2>
+        <h2 class="section-title">Frequently asked <em>questions.</em></h2>
         <p class="section-description">
           Everything you need to know about Bharosa's privacy and setup.
         </p>
@@ -444,20 +444,20 @@
     </div>
   </section>
 
-  <!-- Download Call-to-Action Section -->
+  <!-- Download Call-to-Action Section (Lavender Container) -->
   <section class="section" id="download">
     <div class="container">
       <div class="download-cta-box" id="ios-notice">
-        <div class="pill-badge" style="background: rgba(255,255,255,0.1); color: #fff;">
+        <div class="pill-badge" style="background: rgba(255,255,255,0.7); color: var(--primary-ultraviolet);">
           🚀 Production Release v1.0.0
         </div>
-        <h2 class="download-cta-title">Take Back Your Privacy Today</h2>
+        <h2 class="download-cta-title">Take back your privacy <em>today.</em></h2>
         <p class="download-cta-desc">
           Download the Bharosa APK directly to your Android device. Fast, lightweight, and completely untracked.
         </p>
 
         <div class="download-btn-wrapper">
-          <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="btn btn-primary download-apk-btn" style="padding: 16px 36px; font-size: 1.1rem;">
+          <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="btn btn-primary download-apk-btn" style="padding: 16px 36px; font-size: 1.05rem;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4126 13.8533 8.081 12 8.081s-3.5902.3316-5.1368.8697L4.8409 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
             </svg>
@@ -490,7 +490,7 @@
     <div class="container">
       <div class="footer-content">
         <div class="brand">
-          <img src="assets/logo.png" alt="Bharosa Logo" class="brand-logo" style="width: 28px; height: 28px;">
+          <img src="assets/proper_logo.png" alt="Bharosa Logo" class="brand-logo" style="width: 28px; height: 28px;">
           <span>Bharosa Messenger</span>
         </div>
 
@@ -505,8 +505,8 @@
 
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 0.8rem;">
         <p>&copy; 2026 Bharosa Messenger. Open-source, zero-knowledge sovereign communication.</p>
-        <p style="display: flex; align-items: center; gap: 6px;">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+        <p style="display: flex; align-items: center; gap: 6px; color: var(--accent-green); font-weight: 600;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green);"></span>
           All Relay Queues Operational
         </p>
       </div>
