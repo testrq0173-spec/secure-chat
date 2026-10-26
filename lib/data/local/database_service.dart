@@ -52,7 +52,7 @@ class DatabaseService {
 
   Future<void> _createTables(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE profiles (
+      CREATE TABLE IF NOT EXISTS profiles (
         id TEXT PRIMARY KEY,
         displayName TEXT NOT NULL,
         photoPath TEXT,
@@ -63,7 +63,7 @@ class DatabaseService {
     ''');
 
     await db.execute('''
-      CREATE TABLE contacts (
+      CREATE TABLE IF NOT EXISTS contacts (
         id TEXT PRIMARY KEY,
         profileId TEXT NOT NULL,
         displayName TEXT NOT NULL,
@@ -84,7 +84,7 @@ class DatabaseService {
     ''');
 
     await db.execute('''
-      CREATE TABLE conversations (
+      CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -103,9 +103,8 @@ class DatabaseService {
       )
     ''');
 
-
     await db.execute('''
-      CREATE TABLE messages (
+      CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
         conversationId TEXT NOT NULL,
         senderId TEXT NOT NULL,
@@ -130,7 +129,7 @@ class DatabaseService {
     ''');
 
     await db.execute('''
-      CREATE TABLE reactions (
+      CREATE TABLE IF NOT EXISTS reactions (
         id TEXT PRIMARY KEY,
         messageId TEXT NOT NULL,
         contactId TEXT NOT NULL,
@@ -140,7 +139,7 @@ class DatabaseService {
     ''');
 
     await db.execute('''
-      CREATE TABLE groups (
+      CREATE TABLE IF NOT EXISTS groups (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         avatar TEXT,
@@ -151,7 +150,7 @@ class DatabaseService {
     ''');
 
     await db.execute('''
-      CREATE TABLE group_members (
+      CREATE TABLE IF NOT EXISTS group_members (
         groupId TEXT NOT NULL,
         contactId TEXT NOT NULL,
         displayName TEXT NOT NULL,
@@ -162,16 +161,16 @@ class DatabaseService {
     ''');
 
     await db.execute('''
-      CREATE TABLE settings (
+      CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       )
     ''');
 
     // Create indexes for high performance querying
-    await db.execute('CREATE INDEX idx_messages_conv ON messages(conversationId, timestamp)');
-    await db.execute('CREATE INDEX idx_messages_expires ON messages(expiresAt)');
-    await db.execute('CREATE INDEX idx_contacts_receive_queue ON contacts(receiveQueueId)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversationId, timestamp)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_expires ON messages(expiresAt)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_contacts_receive_queue ON contacts(receiveQueueId)');
   }
 
   // --- Profiles ---
