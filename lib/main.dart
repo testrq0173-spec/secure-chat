@@ -2,11 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'app/app.dart';
 import 'core/services/background_delivery_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,13 +39,22 @@ void main() async {
       );
     } else {
       await Firebase.initializeApp();
+      // Initialize Firebase Messaging Background Handler
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     }
     debugPrint('Firebase initialized successfully for real-time sync');
   } catch (e) {
     debugPrint('Firebase init notice: $e (Falling back to local relay)');
   }
 
-  // Initialize Background Delivery Service (WhatsApp-style killed state & background delivery)
+  // Initialize FCM Push Notification Service (WhatsApp-style notifications without persistent status bar icon)
+  try {
+    await PushNotificationService.instance.initialize();
+  } catch (e) {
+    debugPrint('PushNotificationService init notice: $e');
+  }
+
+  // Initialize Background Delivery Service (Silent message synchronization)
   try {
     await BackgroundDeliveryService.instance.initialize();
     debugPrint('BackgroundDeliveryService initialized successfully');

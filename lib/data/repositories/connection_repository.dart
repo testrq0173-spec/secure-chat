@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/push_notification_service.dart';
 import '../../core/crypto/crypto_engine.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/double_ratchet.dart';
@@ -44,10 +45,12 @@ class ConnectionRepository {
     final inboxQueueId = QueueCrypto.generateQueueId();
     final inviteId = _uuid.v4();
 
+    final fcmToken = await PushNotificationService.instance.getDeviceToken();
     // Register queue with relay
     await _relayService.registerQueue(
       queueId: inboxQueueId,
       ownerPublicKey: base64Encode(ephemeralDhPub),
+      fcmToken: fcmToken,
     );
 
     final invite = ConnectionInvite(
@@ -102,11 +105,13 @@ class ConnectionRepository {
     final bobDhPair = await CryptoEngine.generateDhKeyPair();
     final bobDhPub = await CryptoEngine.getPublicKeyBytes(bobDhPair);
 
+    final fcmToken = await PushNotificationService.instance.getDeviceToken();
     // Bob generates his own receiving unilateral queue
     final bobReceiveQueueId = QueueCrypto.generateQueueId();
     await _relayService.registerQueue(
       queueId: bobReceiveQueueId,
       ownerPublicKey: base64Encode(bobDhPub),
+      fcmToken: fcmToken,
     );
 
     // Compute shared DH secret

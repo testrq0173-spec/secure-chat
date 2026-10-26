@@ -51,19 +51,20 @@ class BackgroundDeliveryService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
+    // Ensure any previously pinned persistent notification is cleanly dismissed
+    try {
+      await flutterLocalNotificationsPlugin.cancel(id: notificationId);
+    } catch (_) {}
+
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: true,
-        isForegroundMode: true,
+        isForegroundMode: false,
         notificationChannelId: notificationChannelId,
-        initialNotificationTitle: 'Bharosa Secure Channel',
-        initialNotificationContent: 'Encrypted message delivery active',
+        initialNotificationTitle: 'Bharosa Sync',
+        initialNotificationContent: 'Message delivery active',
         foregroundServiceNotificationId: notificationId,
-        foregroundServiceTypes: [
-          AndroidForegroundType.dataSync,
-          AndroidForegroundType.remoteMessaging,
-        ],
       ),
       iosConfiguration: IosConfiguration(
         autoStart: true,

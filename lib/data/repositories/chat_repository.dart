@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/push_notification_service.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/double_ratchet.dart';
 import '../../core/storage/secure_storage_service.dart';
@@ -56,13 +57,22 @@ class ChatRepository {
       'settings',
       where: "key LIKE 'pending_invite_%'",
     );
+    final queueIdsToSync = <String>[
+      ...contacts.map((c) => c.receiveQueueId),
+    ];
     for (final row in inviteSettings) {
       try {
         final meta = jsonDecode(row['value'] as String) as Map<String, dynamic>;
         final inboxQueueId = meta['inboxQueueId'] as String;
+        queueIdsToSync.add(inboxQueueId);
         await listenToInviteQueue(inboxQueueId);
       } catch (_) {}
     }
+
+    // Sync FCM tokens to Firestore for WhatsApp-style push delivery
+    try {
+      await PushNotificationService.instance.syncTokensForQueues(queueIdsToSync);
+    } catch (_) {}
 
     // Start 3-second heartbeat sync for guaranteed zero-delay delivery
     _heartbeatTimer?.cancel();
