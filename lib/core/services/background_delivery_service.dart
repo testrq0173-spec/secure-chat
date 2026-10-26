@@ -126,7 +126,6 @@ void onStart(ServiceInstance service) async {
 
   bool isAppInForeground = false;
   final Map<String, StreamSubscription> activeSubscriptions = {};
-  final Map<String, List<String?>> chunkBuffers = {};
   final Map<String, String> completedMediaFiles = {};
 
   service.on('setAppForeground').listen((event) {
@@ -226,12 +225,20 @@ void onStart(ServiceInstance service) async {
         final chunkData = payload['chunkData'] as String;
         final fName = payload['fileName'] as String? ?? 'media_$targetMessageId.dat';
 
-        chunkBuffers.putIfAbsent(targetMessageId, () => List<String?>.filled(totalChunks, null));
-        chunkBuffers[targetMessageId]![chunkIndex] = chunkData;
+        // Persist chunk to shared SQLite database
+        await dbService.saveMediaChunk(
+          messageId: targetMessageId,
+          chunkIndex: chunkIndex,
+          totalChunks: totalChunks,
+          chunkData: chunkData,
+          fileName: fName,
+        );
 
-        if (!chunkBuffers[targetMessageId]!.contains(null)) {
-          final fullBase64 = chunkBuffers[targetMessageId]!.join();
-          chunkBuffers.remove(targetMessageId);
+        final currentCount = await dbService.getMediaChunkCount(targetMessageId);
+        if (currentCount == totalChunks) {
+          final chunkRows = await dbService.getMediaChunks(targetMessageId);
+          final fullBase64 = chunkRows.map((r) => r['chunkData'] as String).join();
+          await dbService.deleteMediaChunks(targetMessageId);
 
           try {
             final fileBytes = base64Decode(fullBase64);
@@ -275,7 +282,7 @@ void onStart(ServiceInstance service) async {
         expiresAt = DateTime.now().millisecondsSinceEpoch + (contact.disappearingDurationSeconds * 1000);
       }
 
-      String? localSavedPath = payload['filePath'] as String?;
+      String? localSavedPath;
       final fileData = payload['fileData'] as String?;
       if (fileData != null) {
         try {

@@ -29,7 +29,6 @@ class ChatRepository {
   final Map<String, StreamSubscription> _queueSubscriptions = {};
   final StreamController<Message> _incomingMessageStream = StreamController<Message>.broadcast();
   final StreamController<Contact> _connectionRequestStream = StreamController<Contact>.broadcast();
-  final Map<String, List<String?>> _chunkBuffers = {};
   final Map<String, String> _completedMediaFiles = {};
   Timer? _heartbeatTimer;
 
@@ -285,12 +284,20 @@ class ChatRepository {
         final chunkData = payload['chunkData'] as String;
         final fName = payload['fileName'] as String? ?? 'media_$targetMessageId.dat';
 
-        _chunkBuffers.putIfAbsent(targetMessageId, () => List<String?>.filled(totalChunks, null));
-        _chunkBuffers[targetMessageId]![chunkIndex] = chunkData;
+        // Save chunk in persistent SQLite database
+        await _databaseService.saveMediaChunk(
+          messageId: targetMessageId,
+          chunkIndex: chunkIndex,
+          totalChunks: totalChunks,
+          chunkData: chunkData,
+          fileName: fName,
+        );
 
-        if (!_chunkBuffers[targetMessageId]!.contains(null)) {
-          final fullBase64 = _chunkBuffers[targetMessageId]!.join();
-          _chunkBuffers.remove(targetMessageId);
+        final currentCount = await _databaseService.getMediaChunkCount(targetMessageId);
+        if (currentCount == totalChunks) {
+          final chunkRows = await _databaseService.getMediaChunks(targetMessageId);
+          final fullBase64 = chunkRows.map((r) => r['chunkData'] as String).join();
+          await _databaseService.deleteMediaChunks(targetMessageId);
 
           try {
             final fileBytes = base64Decode(fullBase64);
@@ -332,7 +339,7 @@ class ChatRepository {
       }
 
       // Extract media file data if transferred inline or resolve from completed chunks
-      String? localSavedPath = payload['filePath'] as String?;
+      String? localSavedPath;
       final fileData = payload['fileData'] as String?;
       if (fileData != null) {
         try {

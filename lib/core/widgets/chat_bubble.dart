@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import '../../data/models/message.dart';
+import '../../features/media/image_viewer_screen.dart';
+import '../../features/media/video_player_screen.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import 'voice_player_widget.dart';
@@ -14,6 +16,8 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onReplyTap;
   final Function(String emoji)? onReactionTap;
+  final VoidCallback? onDelete;
+  final Function(String replyText)? onSendReply;
 
   const ChatBubble({
     super.key,
@@ -23,6 +27,8 @@ class ChatBubble extends StatelessWidget {
     this.onLongPress,
     this.onReplyTap,
     this.onReactionTap,
+    this.onDelete,
+    this.onSendReply,
   });
 
   String _formatTime(int timestamp) {
@@ -62,28 +68,54 @@ class ChatBubble extends StatelessWidget {
     final file = File(message.filePath!);
     if (!file.existsSync()) return;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(12),
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: InteractiveViewer(
-                child: Image.file(file),
-              ),
-            ),
-            IconButton(
-              icon: const CircleAvatar(
-                backgroundColor: Colors.black54,
-                child: Icon(Icons.close_rounded, color: Colors.white, size: 20),
-              ),
-              onPressed: () => Navigator.pop(ctx),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ImageViewerScreen(
+          filePath: message.filePath!,
+          senderName: isMe ? 'You' : message.senderName,
+          timestamp: message.timestamp,
+          caption: message.content.isNotEmpty ? message.content : null,
+          messageId: message.id,
+          onReply: () {
+            Navigator.pop(context);
+            onReplyTap?.call();
+          },
+          onDelete: () {
+            onDelete?.call();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openVideo(BuildContext context) {
+    if (message.filePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video file is still downloading or unavailable')),
+      );
+      return;
+    }
+    final file = File(message.filePath!);
+    if (!file.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video file not found on device storage')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(
+          filePath: message.filePath!,
+          senderName: isMe ? 'You' : message.senderName,
+          timestamp: message.timestamp,
+          caption: message.content.isNotEmpty ? message.content : null,
+          fileName: message.fileName,
+          fileSize: message.fileSize,
+          onSendReply: onSendReply,
+          onDelete: onDelete,
         ),
       ),
     );
@@ -265,7 +297,7 @@ class ChatBubble extends StatelessWidget {
                         const SizedBox(height: 6),
                       ] else if (message.type == MessageType.video) ...[
                         GestureDetector(
-                          onTap: () => _openFile(context),
+                          onTap: () => _openVideo(context),
                           child: Container(
                             height: 140,
                             width: double.infinity,

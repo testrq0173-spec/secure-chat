@@ -61,6 +61,7 @@ dependencies:
   flutter_background_service: ^5.1.0
   firebase_messaging: ^17.0.1
   sqflite_common_ffi_web: ^1.2.0
+  video_player: ^2.14.1
 
 dev_dependencies:
   flutter_test:

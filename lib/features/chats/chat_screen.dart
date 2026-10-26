@@ -518,7 +518,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         isMe: isMe,
                         onLongPress: () => _showMessageActions(msg, isMe),
                         onReplyTap: () {
-                          // Highlight or scroll to reply
+                          setState(() => _replyingMessage = msg);
+                        },
+                        onDelete: () async {
+                          await ref.read(chatRepositoryProvider).deleteForMe(msg.id);
+                          if (mounted) {
+                            ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+                            ref.read(conversationsProvider.notifier).loadConversations();
+                          }
+                        },
+                        onSendReply: (replyText) async {
+                          final chatRepo = ref.read(chatRepositoryProvider);
+                          await chatRepo.sendMessage(
+                            conversationId: widget.conversationId,
+                            content: replyText,
+                            replyToId: msg.id,
+                            replyToSender: msg.senderName,
+                            replyToText: msg.content.isNotEmpty ? msg.content : (msg.fileName ?? 'Media'),
+                          );
+                          if (mounted) {
+                            ref.read(chatMessagesProvider(widget.conversationId).notifier).loadMessages();
+                            ref.read(conversationsProvider.notifier).loadConversations();
+                            _scrollToBottom();
+                          }
                         },
                       );
                     },

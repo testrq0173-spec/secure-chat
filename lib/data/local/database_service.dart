@@ -171,10 +171,67 @@ class DatabaseService {
       )
     ''');
 
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS media_chunks (
+        messageId TEXT NOT NULL,
+        chunkIndex INTEGER NOT NULL,
+        totalChunks INTEGER NOT NULL,
+        chunkData TEXT NOT NULL,
+        fileName TEXT,
+        PRIMARY KEY (messageId, chunkIndex)
+      )
+    ''');
+
     // Create indexes for high performance querying
     await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversationId, timestamp)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_expires ON messages(expiresAt)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_contacts_receive_queue ON contacts(receiveQueueId)');
+  }
+
+  // --- Media Chunks Persistence ---
+  Future<void> saveMediaChunk({
+    required String messageId,
+    required int chunkIndex,
+    required int totalChunks,
+    required String chunkData,
+    String? fileName,
+  }) async {
+    final db = await database;
+    await db.insert(
+      'media_chunks',
+      {
+        'messageId': messageId,
+        'chunkIndex': chunkIndex,
+        'totalChunks': totalChunks,
+        'chunkData': chunkData,
+        'fileName': fileName,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> getMediaChunkCount(String messageId) async {
+    final db = await database;
+    final res = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM media_chunks WHERE messageId = ?',
+      [messageId],
+    );
+    return res.isNotEmpty ? (res.first['cnt'] as int? ?? 0) : 0;
+  }
+
+  Future<List<Map<String, dynamic>>> getMediaChunks(String messageId) async {
+    final db = await database;
+    return await db.query(
+      'media_chunks',
+      where: 'messageId = ?',
+      whereArgs: [messageId],
+      orderBy: 'chunkIndex ASC',
+    );
+  }
+
+  Future<void> deleteMediaChunks(String messageId) async {
+    final db = await database;
+    await db.delete('media_chunks', where: 'messageId = ?', whereArgs: [messageId]);
   }
 
   // --- Profiles ---
