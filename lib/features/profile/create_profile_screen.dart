@@ -23,7 +23,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _createProfile() async {
+  Future<void> _createProfile({bool skipLock = false}) async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -42,7 +42,11 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
       await chatRepo.getOrCreateSavedNotes();
 
       if (!mounted) return;
-      context.go('/set-lock');
+      if (skipLock) {
+        context.go('/home');
+      } else {
+        context.go('/set-lock');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +63,19 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
       backgroundColor: AppColors.paper,
       appBar: AppBar(
         title: const Text('Setup Vault'),
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : () => _createProfile(skipLock: true),
+            child: Text(
+              'Skip',
+              style: AppTypography.button.copyWith(
+                color: AppColors.grey500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -140,11 +157,11 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
 
               const SizedBox(height: 48),
 
-              // Submit Button
+              // Submit Buttons
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createProfile,
+                  onPressed: _isLoading ? null : () => _createProfile(skipLock: false),
                   child: _isLoading
                       ? const SizedBox(
                           width: 22,
@@ -152,6 +169,21 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                           child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2),
                         )
                       : const Text('Continue to App Lock'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: _isLoading ? null : () => _createProfile(skipLock: true),
+                  child: Text(
+                    'Skip App Lock',
+                    style: AppTypography.button.copyWith(
+                      color: AppColors.grey500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
               ),
             ],
