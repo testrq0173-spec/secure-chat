@@ -17,8 +17,9 @@
 <body>
 
   <!-- Ambient Glowing Atmosphere -->
-  <div class="ambient-glow-1"></div>
-  <div class="ambient-glow-2"></div>
+  <div class="cursor-glow" id="cursorGlow"></div>
+  <div class="ambient-glow-1" id="orb1"></div>
+  <div class="ambient-glow-2" id="orb2"></div>
   <div class="grid-overlay"></div>
 
   <!-- Sticky Navbar -->
@@ -55,26 +56,28 @@
   <!-- Hero Section -->
   <section class="hero-section" id="hero">
     <div class="container">
-      <div class="pill-badge">
+      <div class="pill-badge" id="heroBadge">
         <span class="pulsing-dot"></span>
         Zero-Knowledge Encrypted Messaging
       </div>
 
-      <h1 class="hero-title">
+      <h1 class="hero-title" id="heroTitle">
         Private Conversations.<br>
         <span class="gradient-text">Absolute Peace of Mind.</span>
       </h1>
 
-      <p class="hero-subtitle">
+      <p class="hero-subtitle" id="heroSubtitle">
         Engineered with Double Ratchet cryptographic forward secrecy and SimpleX-inspired blinded capability queues. No phone numbers, no emails, and zero metadata stored.
       </p>
 
       <div class="hero-cta-group">
-        <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="btn btn-primary download-apk-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4126 13.8533 8.081 12 8.081s-3.5902.3316-5.1368.8697L4.8409 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
-          </svg>
-          Download for Android (.APK)
+        <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="conic-glow-btn download-apk-btn">
+          <span class="conic-glow-inner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4126 13.8533 8.081 12 8.081s-3.5902.3316-5.1368.8697L4.8409 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+            </svg>
+            Download for Android (.APK)
+          </span>
         </a>
 
         <a href="#ios-notice" class="ios-notice-badge ios-trigger">
@@ -88,9 +91,25 @@
 
       <p class="checksum-info">v1.0.0 &bull; Android 8.0+ &bull; Clean Architecture &bull; SHA-256 Verified</p>
 
-      <!-- 3D Smartphone Hero Visual -->
-      <div class="hero-showcase">
-        <img src="assets/hero_mockup.jpg" alt="Bharosa App Interface Showcase on Smartphone">
+      <!-- 3D Parallax Smartphone Stage with Floating Badges -->
+      <div class="hero-stage" id="heroStage">
+        <div class="floating-capsule top-left" id="badgeLeft">
+          <span style="font-size: 1.1rem;">🔒</span>
+          <span>Double Ratchet KDF #84102</span>
+        </div>
+        <div class="floating-capsule top-right" id="badgeTopRight">
+          <span style="font-size: 1.1rem;">🛡️</span>
+          <span>Zero Identifiers &bull; No Phone</span>
+        </div>
+        <div class="floating-capsule bottom-right" id="badgeRight">
+          <span style="font-size: 1.1rem;">⚡</span>
+          <span>Blinded Queue Delivered &bull; Wiped (0s)</span>
+        </div>
+
+        <div class="hero-showcase" id="heroCard">
+          <img src="assets/hero_mockup.jpg" alt="Bharosa App Interface Showcase on Smartphone">
+          <div class="hero-glare" id="heroGlare"></div>
+        </div>
       </div>
 
       <!-- Stat Highlights Banner -->
@@ -114,6 +133,30 @@
       </div>
     </div>
   </section>
+
+  <!-- Infinite Marquee Motion Ticker -->
+  <div class="marquee-container">
+    <div class="marquee-content">
+      <div class="marquee-item"><span class="marquee-dot">✦</span> ZERO PHONE NUMBERS</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> 256-BIT DOUBLE RATCHET</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> BLINDED CAPABILITY QUEUES</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> INSTANT SERVER PACKET WIPE (0s)</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> HARDWARE KEYSTORE VAULT</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> BIOMETRIC & PIN APP LOCK</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> WHATSAPP-GRADE PINCH ZOOM MEDIA</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> SWIPE LEFT-TO-RIGHT TO REPLY</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> ZERO METADATA EXPOSURE</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> ZERO PHONE NUMBERS</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> 256-BIT DOUBLE RATCHET</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> BLINDED CAPABILITY QUEUES</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> INSTANT SERVER PACKET WIPE (0s)</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> HARDWARE KEYSTORE VAULT</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> BIOMETRIC & PIN APP LOCK</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> WHATSAPP-GRADE PINCH ZOOM MEDIA</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> SWIPE LEFT-TO-RIGHT TO REPLY</div>
+      <div class="marquee-item"><span class="marquee-dot">✦</span> ZERO METADATA EXPOSURE</div>
+    </div>
+  </div>
 
   <!-- Bento Grid Features Section -->
   <section class="section" id="features">
