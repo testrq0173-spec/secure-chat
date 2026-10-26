@@ -345,9 +345,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             _sectionHeader('ABOUT'),
             _buildContainer([
-              const ListTile(
-                title: Text('Bharosa Messenger'),
-                subtitle: Text('v1.0.0 (Phase 0 to Phase 2 Production Ready)'),
+              ListTile(
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.asset('assets/images/app_logo.png', width: 40, height: 40, fit: BoxFit.cover),
+                ),
+                title: const Text('Bharosa Messenger'),
+                subtitle: const Text('v1.0.0 (Encrypted & Secure)'),
               ),
               const Divider(),
               const ListTile(

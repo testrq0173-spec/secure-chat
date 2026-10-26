@@ -76,17 +76,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
             ScaleTransition(
               scale: _scaleAnimation,
               child: Container(
-                width: 96,
-                height: 96,
+                width: 104,
+                height: 104,
                 decoration: BoxDecoration(
-                  color: AppColors.ultraviolet,
-                  shape: BoxShape.circle,
-                  boxShadow: AppColors.elevatedShadow,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ultraviolet.withValues(alpha: 0.35),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                child: const Icon(
-                  Icons.shield_rounded,
-                  color: AppColors.white,
-                  size: 52,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'assets/images/app_logo.png',
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
