@@ -37,9 +37,13 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createTables,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        await _createTables(db, newVersion);
+      },
       onOpen: (db) async {
+        await _createTables(db, 2);
         try {
           await db.execute("ALTER TABLE contacts ADD COLUMN requestStatus TEXT NOT NULL DEFAULT 'approved'");
         } catch (_) {}
