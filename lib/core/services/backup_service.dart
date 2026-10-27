@@ -57,13 +57,17 @@ class BackupService {
     final dirs = <Directory>[];
 
     if (!kIsWeb && Platform.isAndroid) {
-      // 1. Android Public Downloads folder (survives app uninstall)
-      dirs.add(Directory('/storage/emulated/0/Download/Bharosa_Backups'));
-      dirs.add(Directory('/storage/emulated/0/Download'));
+      // 1. WhatsApp-style App Media Vault (Scoped Storage compliant, safe from accidental downloads cleanup)
+      dirs.add(Directory('/storage/emulated/0/Android/media/com.bharosa.bharosa/Bharosa/Databases'));
+      dirs.add(Directory('/storage/emulated/0/Android/media/com.bharosa.bharosa/Bharosa/Backups'));
 
       // 2. Android Public Documents folder
       dirs.add(Directory('/storage/emulated/0/Documents/Bharosa_Backups'));
       dirs.add(Directory('/storage/emulated/0/Documents'));
+
+      // 3. Android Public Downloads folder (fallback & backwards compatibility)
+      dirs.add(Directory('/storage/emulated/0/Download/Bharosa_Backups'));
+      dirs.add(Directory('/storage/emulated/0/Download'));
     }
 
     try {

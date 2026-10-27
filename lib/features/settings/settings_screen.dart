@@ -253,7 +253,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Icon(Icons.check_circle_rounded, color: AppColors.white, size: 20),
               SizedBox(width: 10),
               Expanded(
-                child: Text('Backup complete! Saved to Downloads / Bharosa_Backups'),
+                child: Text('Backup complete! Saved in Secure Media Vault (Android/media)'),
               ),
             ],
           ),
@@ -608,7 +608,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               const SizedBox(height: 3),
                               Text(
                                 _lastBackupSize != null
-                                    ? 'Size: ${(_lastBackupSize! / 1024).toStringAsFixed(1)} KB • Saved in Downloads / Persistent Storage'
+                                    ? 'Size: ${(_lastBackupSize! / 1024).toStringAsFixed(1)} KB • Saved in Secure Vault (Android/media)'
                                     : 'Back up your messages and media to phone storage so you never lose them upon reinstalling.',
                                 style: AppTypography.caption.copyWith(color: AppColors.grey500),
                               ),
