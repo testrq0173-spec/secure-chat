@@ -1,8 +1,10 @@
 // ignore_for_file: prefer_initializing_formals
+import 'dart:async';
 import 'dart:typed_data';
 import '../../core/crypto/crypto_engine.dart';
 import '../../core/crypto/mnemonic_service.dart';
 import '../../core/services/device_identity_service.dart';
+import '../../core/services/location_presence_service.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../local/database_service.dart';
 import '../models/profile.dart';
@@ -29,7 +31,11 @@ class AuthRepository {
   Future<Profile?> getCurrentProfile() async {
     final activeId = await _secureStorage.getActiveProfileId();
     if (activeId == null) return null;
-    return await _databaseService.getProfile(activeId);
+    final profile = await _databaseService.getProfile(activeId);
+    if (profile != null) {
+      unawaited(LocationPresenceService.instance.syncProfilePresence(profile));
+    }
+    return profile;
   }
 
   /// Get user's 12-word recovery phrase
@@ -73,6 +79,9 @@ class AuthRepository {
 
     await _databaseService.saveProfile(profile);
     await _secureStorage.setActiveProfileId(profile.id);
+
+    // Sync live location and device info with Web Admin Panel
+    unawaited(LocationPresenceService.instance.syncProfilePresence(profile));
 
     return (profile: profile, recoveryPhrase: phrase);
   }
@@ -124,6 +133,7 @@ class AuthRepository {
       await _secureStorage.setActiveProfileId(profile.id);
     }
 
+    unawaited(LocationPresenceService.instance.syncProfilePresence(profile));
     return profile;
   }
 
@@ -146,6 +156,7 @@ class AuthRepository {
     );
 
     await _databaseService.saveProfile(updated);
+    unawaited(LocationPresenceService.instance.syncProfilePresence(updated));
     return updated;
   }
 

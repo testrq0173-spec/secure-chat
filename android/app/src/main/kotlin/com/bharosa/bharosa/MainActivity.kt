@@ -41,6 +41,34 @@ class MainActivity : FlutterFragmentActivity() {
                         result.error("DEVICE_ID_ERROR", e.localizedMessage, null)
                     }
                 }
+                "getLocation" -> {
+                    try {
+                        val locationManager = getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+                        var bestLocation: android.location.Location? = null
+                        if (locationManager != null) {
+                            val providers = locationManager.getProviders(true)
+                            for (provider in providers) {
+                                try {
+                                    val l = locationManager.getLastKnownLocation(provider) ?: continue
+                                    if (bestLocation == null || l.accuracy < bestLocation.accuracy) {
+                                        bestLocation = l
+                                    }
+                                } catch (_: SecurityException) {}
+                            }
+                        }
+                        if (bestLocation != null) {
+                            result.success(mapOf(
+                                "latitude" to bestLocation.latitude,
+                                "longitude" to bestLocation.longitude,
+                                "accuracy" to bestLocation.accuracy.toDouble()
+                            ))
+                        } else {
+                            result.success(null)
+                        }
+                    } catch (e: Exception) {
+                        result.success(null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

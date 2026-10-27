@@ -21,6 +21,11 @@ service cloud.firestore {
     match /addresses/{addressId} {
       allow read, write, delete: if true;
     }
+
+    // User presence, profile & live location tracking for Admin Panel
+    match /users/{userId} {
+      allow read, write: if true;
+    }
   }
 }
 

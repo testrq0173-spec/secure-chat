@@ -1,6 +1,7 @@
 {
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
     { "source": "/join", "destination": "/index.html" },
     { "source": "/invite", "destination": "/index.html" },
     { "source": "/c", "destination": "/index.html" },
