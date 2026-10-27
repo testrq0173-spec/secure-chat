@@ -11,7 +11,8 @@ import '../../core/theme/typography.dart';
 import '../../data/models/invite.dart';
 
 class NewConnectionScreen extends ConsumerStatefulWidget {
-  const NewConnectionScreen({super.key});
+  final String? initialInviteCode;
+  const NewConnectionScreen({super.key, this.initialInviteCode});
 
   @override
   ConsumerState<NewConnectionScreen> createState() => _NewConnectionScreenState();
@@ -43,6 +44,16 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
       }
       setState(() {});
     });
+    
+    if (widget.initialInviteCode != null && widget.initialInviteCode!.trim().isNotEmpty) {
+      _tabController.index = 1;
+      _isScanningMode = false;
+      _pasteController.text = widget.initialInviteCode!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleScannedCode(widget.initialInviteCode!);
+      });
+    }
+
     _generateInvite();
   }
 

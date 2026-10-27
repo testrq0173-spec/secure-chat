@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/join", "destination": "/index.html" },
+    { "source": "/invite", "destination": "/index.html" },
+    { "source": "/c", "destination": "/index.html" },
+    { "source": "/connect", "destination": "/index.html" }
+  ]
+}

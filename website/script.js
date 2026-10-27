@@ -227,4 +227,104 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 350);
     });
   }
+
+  // 13. Smart Deep Link & Invite Handler
+  const inviteModal = document.getElementById('inviteModal');
+  const closeInviteModalBtn = document.getElementById('closeInviteModal');
+  const modalOpenAppBtn = document.getElementById('modalOpenAppBtn');
+  const inviterNameDisplay = document.getElementById('inviterNameDisplay');
+
+  // Check URL query parameters or hash
+  const urlParams = new URLSearchParams(window.location.search);
+  const hash = window.location.hash;
+  let inviteCode = urlParams.get('c') || urlParams.get('invite') || urlParams.get('data');
+
+  if (!inviteCode && hash) {
+    if (hash.includes('c=')) {
+      inviteCode = hash.split('c=')[1].split('&')[0];
+    } else if (hash.includes('invite=')) {
+      inviteCode = hash.split('invite=')[1].split('&')[0];
+    } else if (hash.startsWith('#')) {
+      const potential = hash.substring(1);
+      if (potential.length > 20) inviteCode = potential;
+    }
+  }
+
+  function openInviteModal() {
+    if (inviteModal) {
+      inviteModal.classList.add('show');
+    }
+  }
+
+  function closeInviteModal() {
+    if (inviteModal) {
+      inviteModal.classList.remove('show');
+    }
+  }
+
+  if (closeInviteModalBtn) {
+    closeInviteModalBtn.addEventListener('click', closeInviteModal);
+  }
+
+  if (inviteModal) {
+    inviteModal.addEventListener('click', (e) => {
+      if (e.target === inviteModal) {
+        closeInviteModal();
+      }
+    });
+  }
+
+  if (inviteCode) {
+    // Try to decode inviter's display name from payload
+    let inviterName = 'A friend';
+    try {
+      let norm = inviteCode.trim();
+      while (norm.length % 4 !== 0) norm += '=';
+      const decodedStr = atob(norm.replace(/-/g, '+').replace(/_/g, '/'));
+      const parsed = JSON.parse(decodedStr);
+      if (parsed && parsed.name) {
+        inviterName = parsed.name;
+      }
+    } catch (_) {}
+
+    if (inviterNameDisplay) {
+      inviterNameDisplay.textContent = inviterName;
+    }
+
+    const appDeepLink = `bharosa://connect?data=${encodeURIComponent(inviteCode)}`;
+
+    if (modalOpenAppBtn) {
+      modalOpenAppBtn.addEventListener('click', () => {
+        window.location.href = appDeepLink;
+      });
+    }
+
+    // Attempt to open the app if installed
+    let appOpened = false;
+
+    const markAppOpened = () => {
+      appOpened = true;
+    };
+
+    window.addEventListener('blur', markAppOpened);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) markAppOpened();
+    });
+
+    // Fire deep link to attempt launching installed app
+    window.location.href = appDeepLink;
+
+    // After 1.4s, if user is still on this webpage, app is not installed
+    setTimeout(() => {
+      if (!appOpened && !document.hidden) {
+        // Smoothly scroll down to the download section
+        const downloadSection = document.getElementById('download');
+        if (downloadSection) {
+          downloadSection.scrollIntoView({ behavior: 'smooth' });
+        }
+        // Show the download required popup modal
+        openInviteModal();
+      }
+    }, 1400);
+  }
 });

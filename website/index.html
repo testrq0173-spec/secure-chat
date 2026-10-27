@@ -527,6 +527,54 @@
     </div>
   </section>
 
+  <!-- Invite Redirect & Download Modal Popup -->
+  <div id="inviteModal" class="invite-modal-overlay">
+    <div class="invite-modal-card">
+      <button class="invite-modal-close" id="closeInviteModal" aria-label="Close modal">&times;</button>
+      
+      <div class="invite-modal-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          <circle cx="12" cy="16" r="1.5"></circle>
+        </svg>
+      </div>
+
+      <div class="pill-badge" style="margin-bottom: 12px; display: inline-flex;">
+        <span class="pulsing-dot"></span>
+        Encrypted Chat Invitation
+      </div>
+
+      <h3 class="invite-modal-title">Chat on <em>Bharosa</em></h3>
+      
+      <p class="invite-modal-desc">
+        <strong id="inviterNameDisplay">A friend</strong> has invited you to an end-to-end encrypted private conversation.
+      </p>
+
+      <div class="invite-modal-notice">
+        <span class="notice-icon">📲</span>
+        <span>Aapko chatting start karne ke liye Bharosa app download karni padegi. (You must download Bharosa App to accept this chat).</span>
+      </div>
+
+      <div class="invite-modal-actions">
+        <a href="downloads/bharosa-v1.0.0.apk" download="bharosa-v1.0.0.apk" class="btn btn-primary download-apk-btn" id="modalDownloadBtn" style="width: 100%; padding: 14px 20px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m-11.046 0c-.5511 0-.9993-.4486-.9993-1.0001s.4482-1.0001.9993-1.0001c.5516 0 .9997.4486.9997 1.0001s-.4481 1.0001-.9997 1.0001m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4126 13.8533 8.081 12 8.081s-3.5902.3316-5.1368.8697L4.8409 5.4477a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+          </svg>
+          Download Bharosa App (.APK)
+        </a>
+
+        <button class="btn btn-secondary" id="modalOpenAppBtn" style="width: 100%; padding: 12px 20px; font-size: 0.9rem;">
+          Already have the app? Open in App
+        </button>
+      </div>
+
+      <p class="invite-modal-footer">
+        🔒 256-bit Double Ratchet &bull; No phone number &bull; Zero metadata
+      </p>
+    </div>
+  </div>
+
   <!-- Toast Notification Modal -->
   <div id="toast" class="toast">
     <span style="font-size: 20px;">🛡️</span>

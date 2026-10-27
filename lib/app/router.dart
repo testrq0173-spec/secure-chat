@@ -47,6 +47,24 @@ final appRouter = GoRouter(
       builder: (context, state) => const NewConnectionScreen(),
     ),
     GoRoute(
+      path: '/connect',
+      builder: (context, state) {
+        final code = state.uri.queryParameters['data'] ?? 
+                     state.uri.queryParameters['c'] ?? 
+                     state.uri.queryParameters['invite'];
+        return NewConnectionScreen(initialInviteCode: code);
+      },
+    ),
+    GoRoute(
+      path: '/join',
+      builder: (context, state) {
+        final code = state.uri.queryParameters['c'] ?? 
+                     state.uri.queryParameters['data'] ?? 
+                     state.uri.queryParameters['invite'];
+        return NewConnectionScreen(initialInviteCode: code);
+      },
+    ),
+    GoRoute(
       path: '/chat/:id',
       builder: (context, state) {
         final id = state.pathParameters['id']!;

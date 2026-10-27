@@ -19,22 +19,41 @@ class ConnectionInvite {
     this.isReusable = false,
   });
 
-  /// Encodes invite into a shareable URL and QR code payload
-  /// Format: `bharosa://connect?data=<base64UrlJson>`
+  /// Encodes invite into a shareable clean short web link:
+  /// `https://bharosa-alpha.vercel.app/join?c=<base64UrlJson>`
   String toDeepLink() {
+    final jsonStr = jsonEncode(toJson());
+    final encoded = base64UrlEncode(utf8.encode(jsonStr)).replaceAll('=', '');
+    return 'https://bharosa-alpha.vercel.app/join?c=$encoded';
+  }
+
+  /// Encodes into native URI scheme: `bharosa://connect?data=<base64UrlJson>`
+  String toCustomSchemeUri() {
     final jsonStr = jsonEncode(toJson());
     final encoded = base64UrlEncode(utf8.encode(jsonStr)).replaceAll('=', '');
     return 'bharosa://connect?data=$encoded';
   }
 
-  /// Parses invite from deep link URL or raw QR text
+  /// Parses invite from web link URL, deep link URL, or raw QR text
   static ConnectionInvite? fromDeepLink(String input) {
     try {
-      String dataParam = input.trim();
-      if (input.contains('bharosa://connect?data=')) {
-        dataParam = input.split('bharosa://connect?data=').last;
-      } else if (input.contains('data=')) {
-        dataParam = Uri.parse(input).queryParameters['data'] ?? '';
+      String trimmed = input.trim();
+      String dataParam = trimmed;
+
+      if (trimmed.contains('bharosa://connect?data=')) {
+        dataParam = trimmed.split('bharosa://connect?data=').last;
+      } else if (trimmed.contains('?c=')) {
+        dataParam = trimmed.split('?c=').last.split('&').first;
+      } else if (trimmed.contains('&c=')) {
+        dataParam = trimmed.split('&c=').last.split('&').first;
+      } else if (trimmed.contains('?invite=')) {
+        dataParam = trimmed.split('?invite=').last.split('&').first;
+      } else if (trimmed.contains('&invite=')) {
+        dataParam = trimmed.split('&invite=').last.split('&').first;
+      } else if (trimmed.contains('?data=')) {
+        dataParam = trimmed.split('?data=').last.split('&').first;
+      } else if (trimmed.contains('&data=')) {
+        dataParam = trimmed.split('&data=').last.split('&').first;
       }
 
       var normalized = dataParam;

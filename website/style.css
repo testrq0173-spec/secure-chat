@@ -1008,7 +1008,130 @@ h1 em, h2 em, h3 em, .accent-serif {
   justify-content: center;
   gap: 20px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+/* ==========================================================================
+   INVITE REDIRECT & DOWNLOAD POPUP MODAL
+   ========================================================================== */
+.invite-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 16, 26, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.invite-modal-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.invite-modal-card {
+  background: #ffffff;
+  border: 1px solid rgba(103, 80, 164, 0.22);
+  border-radius: var(--radius-lg);
+  max-width: 460px;
+  width: 100%;
+  padding: 36px 30px;
+  text-align: center;
+  position: relative;
+  transform: translateY(24px) scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 20px 60px rgba(103, 80, 164, 0.15);
+}
+
+.invite-modal-overlay.show .invite-modal-card {
+  transform: translateY(0) scale(1);
+}
+
+.invite-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 4px;
+}
+
+.invite-modal-close:hover {
+  color: var(--primary-ultraviolet);
+}
+
+.invite-modal-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--bg-lavender);
+  border: 1px solid rgba(103, 80, 164, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--primary-ultraviolet);
+}
+
+.invite-modal-icon svg {
+  stroke: var(--primary-ultraviolet);
+}
+
+.invite-modal-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  letter-spacing: -0.02em;
+}
+
+.invite-modal-desc {
+  font-size: 0.94rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.invite-modal-notice {
+  background: #f4eeff;
+  border: 1px solid rgba(103, 80, 164, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 0.86rem;
+  color: var(--primary-dark);
+  font-weight: 500;
+  text-align: left;
+  line-height: 1.45;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.invite-modal-notice .notice-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.invite-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.invite-modal-footer {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* Toast Notification Modal */
