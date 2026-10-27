@@ -63,7 +63,7 @@ class LocationPresenceService {
   Timer? _heartbeatTimer;
   UserLocation? _lastKnownLocation;
 
-  /// Checks whether location permission is granted on Android
+  /// Checks whether foreground location permission is granted on Android
   Future<bool> isLocationPermissionGranted() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
@@ -74,7 +74,41 @@ class LocationPresenceService {
     return false;
   }
 
-  /// Prompts Android OS runtime permission dialog for fine/coarse location
+  /// Checks whether background "Allow all the time" permission is granted on Android
+  Future<bool> isBackgroundLocationGranted() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final res = await _channel.invokeMethod<bool>('checkBackgroundLocationPermission');
+        return res ?? false;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  /// Prompts Android OS runtime permission for background "Allow all the time"
+  Future<bool> requestBackgroundLocationPermission() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final res = await _channel.invokeMethod<bool>('requestBackgroundLocationPermission');
+        return res ?? false;
+      } catch (e) {
+        debugPrint('[LocationPresenceService] requestBackgroundLocationPermission error: $e');
+      }
+    }
+    return false;
+  }
+
+  /// Opens app system permission settings directly
+  Future<void> openLocationSettings() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await _channel.invokeMethod('openLocationSettings');
+      } catch (_) {}
+    }
+  }
+
+  /// Prompts Android OS runtime permission dialog for location, automatically
+  /// requesting "Allow all the time" (background location)
   Future<bool> requestLocationPermission() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {

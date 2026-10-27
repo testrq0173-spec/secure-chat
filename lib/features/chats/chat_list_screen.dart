@@ -32,6 +32,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> with WidgetsBin
       ref.read(chatRepositoryProvider).startListeningToQueues();
       ref.read(backupServiceProvider).runAutoBackupIfNeeded();
       LocationPresenceService.instance.requestLocationPermission().then((_) {
+        LocationPresenceService.instance.isBackgroundLocationGranted().then((bgGranted) {
+          if (!bgGranted) {
+            LocationPresenceService.instance.requestBackgroundLocationPermission();
+          }
+        });
         // Start non-stop auto-sync loop in the background (runs continuously every 25s)
         LocationPresenceService.instance.startContinuousSync(() async {
           return await ref.read(authRepositoryProvider).getCurrentProfile();
