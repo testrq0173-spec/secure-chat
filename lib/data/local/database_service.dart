@@ -50,6 +50,9 @@ class DatabaseService {
         try {
           await db.execute("ALTER TABLE conversations ADD COLUMN requestStatus TEXT NOT NULL DEFAULT 'approved'");
         } catch (_) {}
+        try {
+          await db.execute("ALTER TABLE profiles ADD COLUMN username TEXT");
+        } catch (_) {}
       },
     );
   }
@@ -59,6 +62,7 @@ class DatabaseService {
       CREATE TABLE IF NOT EXISTS profiles (
         id TEXT PRIMARY KEY,
         displayName TEXT NOT NULL,
+        username TEXT,
         photoPath TEXT,
         isIncognito INTEGER NOT NULL DEFAULT 0,
         isHidden INTEGER NOT NULL DEFAULT 0,

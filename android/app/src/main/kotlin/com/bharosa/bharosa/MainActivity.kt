@@ -29,6 +29,18 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     result.success(true)
                 }
+                "getDeviceId" -> {
+                    try {
+                        @android.annotation.SuppressLint("HardwareIds")
+                        val androidId = android.provider.Settings.Secure.getString(
+                            contentResolver,
+                            android.provider.Settings.Secure.ANDROID_ID
+                        )
+                        result.success(androidId ?: "")
+                    } catch (e: Exception) {
+                        result.error("DEVICE_ID_ERROR", e.localizedMessage, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

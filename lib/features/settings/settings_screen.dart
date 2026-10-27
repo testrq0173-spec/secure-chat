@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../app/providers.dart';
 import '../../core/crypto/crypto_utils.dart';
@@ -11,6 +12,7 @@ import '../../core/services/screen_protector_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../data/models/profile.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -58,6 +60,193 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _isAutoBackup = autoBackup;
       });
     }
+  }
+
+  void _showEditProfileDialog(Profile profile) {
+    final nameCtrl = TextEditingController(text: profile.displayName);
+    final userCtrl = TextEditingController(text: profile.username ?? '');
+    String? localPhoto = profile.photoPath;
+    final picker = ImagePicker();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            top: 24,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Edit Profile', style: AppTypography.title.copyWith(fontSize: 20)),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Stack(
+                    children: [
+                      AppAvatar(
+                        name: nameCtrl.text.isEmpty ? 'User' : nameCtrl.text,
+                        imageUrl: localPhoto,
+                        radius: 46,
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 512,
+                              maxHeight: 512,
+                              imageQuality: 85,
+                            );
+                            if (picked != null) {
+                              setModalState(() => localPhoto = picked.path);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.ultraviolet,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, color: AppColors.white, size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () async {
+                      final picked = await picker.pickImage(
+                        source: ImageSource.gallery,
+                        maxWidth: 512,
+                        maxHeight: 512,
+                        imageQuality: 85,
+                      );
+                      if (picked != null) {
+                        setModalState(() => localPhoto = picked.path);
+                      }
+                    },
+                    child: const Text('Change Photo', style: TextStyle(color: AppColors.ultraviolet, fontSize: 13)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('Display / Full Name', style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Enter your name',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Username Handle', style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: userCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. rahul_18',
+                    prefixIcon: Icon(Icons.alternate_email_rounded),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Permanent Device ID View
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.paper,
+                    borderRadius: BorderRadius.circular(AppRadius.card),
+                    border: Border.all(color: AppColors.grey200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.lock_rounded, size: 14, color: AppColors.grey500),
+                          const SizedBox(width: 6),
+                          Text(
+                            'PERMANENT DEVICE ID (HARDWARE BOUND)',
+                            style: AppTypography.caption.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.grey500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        profile.id,
+                        style: AppTypography.caption.copyWith(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'This ID is permanently bound to this physical device hardware.',
+                        style: AppTypography.caption.copyWith(fontSize: 10, color: AppColors.grey500),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final newName = nameCtrl.text.trim();
+                      if (newName.isEmpty) return;
+                      final newUsername = userCtrl.text.trim();
+                      await ref.read(authRepositoryProvider).updateProfile(
+                        displayName: newName,
+                        username: newUsername,
+                        photoPath: localPhoto,
+                      );
+                      ref.invalidate(activeProfileProvider);
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Profile updated successfully!')),
+                        );
+                      }
+                    },
+                    child: const Text('Save Changes'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _confirmEmergencyWipe() {
@@ -383,6 +572,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             profileAsync.when(
               data: (profile) {
                 final name = profile?.displayName ?? 'Anonymous';
+                final username = profile?.username;
+                final deviceId = profile?.id ?? '...';
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -391,34 +582,123 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     border: Border.all(color: AppColors.grey200),
                     boxShadow: AppColors.softCardShadow,
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AppAvatar(name: name, radius: 30),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
+                        children: [
+                          AppAvatar(
+                            name: name,
+                            imageUrl: profile?.photoPath,
+                            radius: 28,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name, style: AppTypography.title.copyWith(fontSize: 17)),
+                                if (username != null && username.isNotEmpty) ...[
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    '@$username',
+                                    style: const TextStyle(
+                                      color: AppColors.ultraviolet,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Key ID: ${_publicKeyFingerprint ?? "..."}',
+                                  style: AppTypography.caption.copyWith(fontFamily: 'monospace', fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (profile != null)
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.ultraviolet),
+                              tooltip: 'Edit Profile',
+                              onPressed: () => _showEditProfileDialog(profile),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      // Permanent Device ID Row
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.paper,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
                           children: [
-                            Text(name, style: AppTypography.title.copyWith(fontSize: 18)),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Key ID: ${_publicKeyFingerprint ?? "..."}',
-                              style: AppTypography.caption.copyWith(fontFamily: 'monospace', fontSize: 11),
+                            const Icon(Icons.fingerprint_rounded, size: 16, color: AppColors.grey500),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'DEVICE ID',
+                                        style: AppTypography.caption.copyWith(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.grey500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.ultraviolet.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'PERMANENT',
+                                          style: AppTypography.caption.copyWith(
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.ultraviolet,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    deviceId,
+                                    style: AppTypography.caption.copyWith(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                      color: AppColors.ink,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.grey500),
+                              tooltip: 'Copy Permanent Device ID',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: deviceId));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Permanent Device ID copied!')),
+                                );
+                              },
                             ),
                           ],
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.grey500),
-                        tooltip: 'Copy Fingerprint',
-                        onPressed: () {
-                          if (_publicKeyFingerprint != null) {
-                            Clipboard.setData(ClipboardData(text: _publicKeyFingerprint!));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Identity fingerprint copied!')),
-                            );
-                          }
-                        },
                       ),
                     ],
                   ),

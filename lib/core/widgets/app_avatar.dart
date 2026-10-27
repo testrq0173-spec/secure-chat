@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 
@@ -27,6 +29,38 @@ class AppAvatar extends StatelessWidget {
     return parts[0][0].toUpperCase();
   }
 
+  Widget _buildImageOrInitials() {
+    if (imageUrl != null && imageUrl!.trim().isNotEmpty) {
+      final path = imageUrl!.trim();
+      final isLocal = !kIsWeb && (path.startsWith('/') || path.contains(r':\'));
+      if (isLocal && File(path).existsSync()) {
+        return ClipOval(
+          child: Image.file(
+            File(path),
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildInitials(),
+          ),
+        );
+      }
+    }
+    return _buildInitials();
+  }
+
+  Widget _buildInitials() {
+    return Center(
+      child: Text(
+        _getInitials(),
+        style: TextStyle(
+          color: AppColors.ultraviolet,
+          fontSize: radius * 0.75,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -41,15 +75,7 @@ class AppAvatar extends StatelessWidget {
             border: Border.all(color: AppColors.white, width: 2),
             boxShadow: AppColors.softCardShadow,
           ),
-          alignment: Alignment.center,
-          child: Text(
-            _getInitials(),
-            style: TextStyle(
-              color: AppColors.ultraviolet,
-              fontSize: radius * 0.75,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          child: _buildImageOrInitials(),
         ),
         if (isVerified)
           Positioned(

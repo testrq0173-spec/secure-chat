@@ -1,8 +1,8 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:typed_data';
-import 'package:uuid/uuid.dart';
 import '../../core/crypto/crypto_engine.dart';
 import '../../core/crypto/mnemonic_service.dart';
+import '../../core/services/device_identity_service.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../local/database_service.dart';
 import '../models/profile.dart';
@@ -10,7 +10,6 @@ import '../models/profile.dart';
 class AuthRepository {
   final SecureStorageService _secureStorage;
   final DatabaseService _databaseService;
-  final _uuid = const Uuid();
 
   AuthRepository({
     required SecureStorageService secureStorage,
@@ -38,9 +37,11 @@ class AuthRepository {
     return await _secureStorage.getRecoveryPhrase();
   }
 
-  /// Create initial anonymous profile with master identity keys derived from 12-word mnemonic
+  /// Create initial anonymous profile with master identity keys derived from 12-word mnemonic.
+  /// The user ID is permanently bound to the unique hardware Device ID.
   Future<({Profile profile, String recoveryPhrase})> createInitialProfile({
     required String displayName,
+    String? username,
     String? photoPath,
     String? existingPhrase,
   }) async {
@@ -57,9 +58,13 @@ class AuthRepository {
     );
     await _secureStorage.saveRecoveryPhrase(phrase);
 
+    // Retrieve permanent hardware-bound Device ID
+    final deviceId = await DeviceIdentityService.getPermanentDeviceId();
+
     final profile = Profile(
-      id: _uuid.v4(),
+      id: deviceId,
       displayName: displayName.trim().isEmpty ? 'Anonymous' : displayName.trim(),
+      username: username?.trim().isNotEmpty == true ? username!.trim() : null,
       photoPath: photoPath,
       isIncognito: false,
       isHidden: false,
@@ -76,6 +81,8 @@ class AuthRepository {
   Future<Profile> restoreFromMnemonic({
     required String mnemonic,
     String? displayName,
+    String? username,
+    String? photoPath,
   }) async {
     final cleanPhrase = mnemonic.trim().toLowerCase().split(RegExp(r'\s+')).join(' ');
     if (!MnemonicService.validateMnemonic(cleanPhrase)) {
@@ -100,12 +107,15 @@ class AuthRepository {
     }
 
     if (profile == null) {
+      final deviceId = await DeviceIdentityService.getPermanentDeviceId();
       final finalName = (displayName != null && displayName.trim().isNotEmpty)
           ? displayName.trim()
           : 'Bharosa User';
       profile = Profile(
-        id: _uuid.v4(),
+        id: deviceId,
         displayName: finalName,
+        username: username?.trim().isNotEmpty == true ? username!.trim() : null,
+        photoPath: photoPath,
         isIncognito: false,
         isHidden: false,
         createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -115,6 +125,28 @@ class AuthRepository {
     }
 
     return profile;
+  }
+
+  /// Update active profile information (Full Name/Display name, Username, Profile picture)
+  /// Note: The underlying device-derived user ID remains permanent and unchanged.
+  Future<Profile?> updateProfile({
+    String? displayName,
+    String? username,
+    String? photoPath,
+  }) async {
+    final activeId = await _secureStorage.getActiveProfileId();
+    if (activeId == null) return null;
+    final current = await _databaseService.getProfile(activeId);
+    if (current == null) return null;
+
+    final updated = current.copyWith(
+      displayName: displayName != null && displayName.trim().isNotEmpty ? displayName.trim() : current.displayName,
+      username: username != null ? (username.trim().isNotEmpty ? username.trim() : null) : current.username,
+      photoPath: photoPath ?? current.photoPath,
+    );
+
+    await _databaseService.saveProfile(updated);
+    return updated;
   }
 
   /// Get public identity key bytes
