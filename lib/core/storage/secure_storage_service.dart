@@ -29,6 +29,9 @@ class SecureStorageService {
   static const _kScreenshotBlock = 'bharosa_screenshot_block';
   static const _kIncognitoMode = 'bharosa_incognito_mode';
   static const _kRecoveryPhrase = 'bharosa_recovery_phrase';
+  static const _kLastBackupTime = 'bharosa_last_backup_time';
+  static const _kLastBackupSize = 'bharosa_last_backup_size';
+  static const _kAutoBackupEnabled = 'bharosa_auto_backup_enabled';
 
   /// Generates or retrieves the device master database passphrase
   Future<String> getOrCreateDbPassphrase() async {
@@ -147,6 +150,31 @@ class SecureStorageService {
 
   Future<String?> getActiveProfileId() async {
     return await _storage.read(key: _kActiveProfileId);
+  }
+
+  /// Backup metadata management (WhatsApp-style auto backup)
+  Future<void> setLastBackupInfo({required int timestamp, required int sizeBytes}) async {
+    await _storage.write(key: _kLastBackupTime, value: timestamp.toString());
+    await _storage.write(key: _kLastBackupSize, value: sizeBytes.toString());
+  }
+
+  Future<int?> getLastBackupTime() async {
+    final str = await _storage.read(key: _kLastBackupTime);
+    return str != null ? int.tryParse(str) : null;
+  }
+
+  Future<int?> getLastBackupSize() async {
+    final str = await _storage.read(key: _kLastBackupSize);
+    return str != null ? int.tryParse(str) : null;
+  }
+
+  Future<void> setAutoBackupEnabled(bool enabled) async {
+    await _storage.write(key: _kAutoBackupEnabled, value: enabled ? '1' : '0');
+  }
+
+  Future<bool> isAutoBackupEnabled() async {
+    final str = await _storage.read(key: _kAutoBackupEnabled);
+    return str != '0'; // Enabled by default
   }
 
   /// Emergency wipe of all local cryptographic keys

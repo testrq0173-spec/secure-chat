@@ -28,6 +28,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatRepositoryProvider).startListeningToQueues();
+      ref.read(backupServiceProvider).runAutoBackupIfNeeded();
       _connectionRequestSub = ref.read(chatRepositoryProvider).onConnectionRequest.listen((contact) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

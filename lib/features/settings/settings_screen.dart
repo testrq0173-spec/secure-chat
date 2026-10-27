@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../app/providers.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/mnemonic_service.dart';
@@ -23,6 +24,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isIncognito = false;
   String? _publicKeyFingerprint;
 
+  // WhatsApp-style Backup State
+  int? _lastBackupTime;
+  int? _lastBackupSize;
+  bool _isAutoBackup = true;
+  bool _isBackingUp = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,12 +44,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final incognito = await storage.isIncognito();
     final pubKey = await authRepo.getIdentityPublicKey();
     final fp = CryptoUtils.toHex(CryptoUtils.sha256(pubKey)).substring(0, 16).toUpperCase();
+    final lastTime = await storage.getLastBackupTime();
+    final lastSize = await storage.getLastBackupSize();
+    final autoBackup = await storage.isAutoBackupEnabled();
 
     if (mounted) {
       setState(() {
         _isScreenshotBlocked = screenshot;
         _isIncognito = incognito;
         _publicKeyFingerprint = fp;
+        _lastBackupTime = lastTime;
+        _lastBackupSize = lastSize;
+        _isAutoBackup = autoBackup;
       });
     }
   }
@@ -220,6 +233,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _runImmediateBackup() async {
+    setState(() => _isBackingUp = true);
+    try {
+      final backupService = ref.read(backupServiceProvider);
+      final file = await backupService.exportAutoBackup();
+      final stat = await file.stat();
+
+      if (!mounted) return;
+      setState(() {
+        _lastBackupTime = DateTime.now().millisecondsSinceEpoch;
+        _lastBackupSize = stat.size;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: AppColors.white, size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Backup complete! Saved to Downloads / Bharosa_Backups'),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Backup failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isBackingUp = false);
+    }
+  }
+
   Future<void> _exportBackup() async {
     final pwdCtrl = TextEditingController();
     bool obscure = true;
@@ -234,7 +287,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Set a passphrase to encrypt your backup file. You will need this passphrase to restore your chats on any device.',
+                'Set a passphrase to encrypt your backup file. A system save dialog will open so you can save it directly to Downloads, Google Drive, or SD card.',
                 style: TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 16),
@@ -256,7 +309,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Export File'),
+              child: const Text('Choose Save Location & Export'),
             ),
           ],
         ),
@@ -266,11 +319,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed == true && pwdCtrl.text.trim().isNotEmpty) {
       try {
         final backupService = ref.read(backupServiceProvider);
-        final file = await backupService.exportEncryptedBackup(passphrase: pwdCtrl.text.trim());
+        final file = await backupService.exportEncryptedBackup(
+          passphrase: pwdCtrl.text.trim(),
+          saveWithSystemDialog: true,
+        );
         final stat = await file.stat();
         final sizeKb = (stat.size / 1024).toStringAsFixed(1);
 
         if (!mounted) return;
+        setState(() {
+          _lastBackupTime = DateTime.now().millisecondsSinceEpoch;
+          _lastBackupSize = stat.size;
+        });
+
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -515,8 +576,89 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             const SizedBox(height: 24),
 
-            _sectionHeader('BACKUP & RECOVERY'),
+            _sectionHeader('CHAT BACKUP (WHATSAPP-STYLE)'),
             _buildContainer([
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.lavender.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.cloud_done_rounded, color: AppColors.ultraviolet, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _lastBackupTime != null
+                                    ? 'Last Backup: ${DateFormat('dd MMM, hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(_lastBackupTime!))}'
+                                    : 'No backup created yet',
+                                style: AppTypography.title.copyWith(fontSize: 15),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _lastBackupSize != null
+                                    ? 'Size: ${(_lastBackupSize! / 1024).toStringAsFixed(1)} KB • Saved in Downloads / Persistent Storage'
+                                    : 'Back up your messages and media to phone storage so you never lose them upon reinstalling.',
+                                style: AppTypography.caption.copyWith(color: AppColors.grey500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isBackingUp ? null : _runImmediateBackup,
+                        icon: _isBackingUp
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.backup_rounded, size: 18),
+                        label: Text(_isBackingUp ? 'Backing Up...' : 'Back Up Now'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.ultraviolet,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text('Auto-Backup (Daily)'),
+                subtitle: const Text('Automatically backs up chats every 24h'),
+                value: _isAutoBackup,
+                activeThumbColor: AppColors.ultraviolet,
+                onChanged: (val) async {
+                  setState(() => _isAutoBackup = val);
+                  await ref.read(secureStorageProvider).setAutoBackupEnabled(val);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.drive_folder_upload_rounded, color: AppColors.ultraviolet),
+                title: const Text('Export to Custom Location...'),
+                subtitle: const Text('Save encrypted backup to Google Drive or Downloads'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
+                onTap: _exportBackup,
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.key_rounded, color: AppColors.ultraviolet),
                 title: const Text('12-Word Recovery Phrase'),
@@ -524,15 +666,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
                 onTap: _viewRecoveryPhrase,
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.save_alt_rounded, color: AppColors.ultraviolet),
-                title: const Text('Export Encrypted Backup'),
-                subtitle: const Text('Save encrypted chats & keys to Downloads'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
-                onTap: _exportBackup,
-              ),
-              const Divider(),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.settings_backup_restore_rounded, color: AppColors.ultraviolet),
                 title: const Text('Restore / Smart Auto-Check'),

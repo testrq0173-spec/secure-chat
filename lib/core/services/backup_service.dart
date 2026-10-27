@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:convert';
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -17,6 +18,7 @@ class BackupFileInfo {
   final int sizeBytes;
   final DateTime modifiedAt;
   final bool isDefaultDirectory;
+  final bool isAutoBackup;
 
   const BackupFileInfo({
     required this.path,
@@ -24,6 +26,7 @@ class BackupFileInfo {
     required this.sizeBytes,
     required this.modifiedAt,
     this.isDefaultDirectory = false,
+    this.isAutoBackup = false,
   });
 
   String get formattedSize {
@@ -49,36 +52,82 @@ class BackupService {
   })  : _databaseService = databaseService,
         _secureStorage = secureStorage;
 
-  /// Gets the primary directory where Bharosa backups are stored
-  Future<Directory> getBackupDirectory() async {
-    Directory targetDir;
+  /// Returns candidate persistent directories for saving and detecting backups
+  Future<List<Directory>> getPersistentBackupDirectories() async {
+    final dirs = <Directory>[];
+
     if (!kIsWeb && Platform.isAndroid) {
-      final downloadDir = Directory('/storage/emulated/0/Download/Bharosa_Backups');
-      if (await downloadDir.exists()) {
-        return downloadDir;
-      }
-      try {
-        await downloadDir.create(recursive: true);
-        return downloadDir;
-      } catch (_) {
-        // Fallback to app documents
-        final doc = await getApplicationDocumentsDirectory();
-        targetDir = Directory(p.join(doc.path, 'Bharosa_Backups'));
-      }
-    } else {
-      final doc = await getApplicationDocumentsDirectory();
-      targetDir = Directory(p.join(doc.path, 'Bharosa_Backups'));
+      // 1. Android Public Downloads folder (survives app uninstall)
+      dirs.add(Directory('/storage/emulated/0/Download/Bharosa_Backups'));
+      dirs.add(Directory('/storage/emulated/0/Download'));
+
+      // 2. Android Public Documents folder
+      dirs.add(Directory('/storage/emulated/0/Documents/Bharosa_Backups'));
+      dirs.add(Directory('/storage/emulated/0/Documents'));
     }
 
-    if (!await targetDir.exists()) {
-      await targetDir.create(recursive: true);
-    }
-    return targetDir;
+    try {
+      final dl = await getDownloadsDirectory();
+      if (dl != null) {
+        dirs.add(Directory(p.join(dl.path, 'Bharosa_Backups')));
+        dirs.add(dl);
+      }
+    } catch (_) {}
+
+    try {
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        dirs.add(Directory(p.join(ext.path, 'Bharosa_Backups')));
+        dirs.add(ext);
+      }
+    } catch (_) {}
+
+    try {
+      final doc = await getApplicationDocumentsDirectory();
+      dirs.add(Directory(p.join(doc.path, 'Bharosa_Backups')));
+      dirs.add(doc);
+    } catch (_) {}
+
+    return dirs;
   }
 
-  /// Exports an AES/ChaCha20-Poly1305 encrypted backup to storage
+  /// Writes backup bytes to multiple persistent locations so uninstallation doesn't erase them
+  Future<File> _writeBackupBytes({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    File? primaryFile;
+    final candidateDirs = await getPersistentBackupDirectories();
+
+    for (final dir in candidateDirs) {
+      try {
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+        final f = File(p.join(dir.path, fileName));
+        await f.writeAsBytes(bytes, flush: true);
+        primaryFile ??= f;
+      } catch (_) {
+        // Silently continue to next directory if restricted
+      }
+    }
+
+    if (primaryFile != null) {
+      return primaryFile;
+    }
+
+    // Fallback to app documents
+    final doc = await getApplicationDocumentsDirectory();
+    final fallback = File(p.join(doc.path, fileName));
+    await fallback.writeAsBytes(bytes, flush: true);
+    return fallback;
+  }
+
+  /// Exports an AES/ChaCha20-Poly1305 encrypted backup
   Future<File> exportEncryptedBackup({
     required String passphrase,
+    String? customFileName,
+    bool saveWithSystemDialog = false,
   }) async {
     if (passphrase.trim().isEmpty) {
       throw const FormatException('Backup passphrase cannot be empty');
@@ -133,45 +182,75 @@ class BackupService {
     totalBytes.setRange(headerBytes.length, headerBytes.length + salt.length, salt);
     totalBytes.setRange(headerBytes.length + salt.length, totalBytes.length, ciphertextWithTag);
 
-    // 7. Save file to disk
-    final backupDir = await getBackupDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final fileName = 'bharosa_backup_$timestamp.enc';
-    final file = File(p.join(backupDir.path, fileName));
-    await file.writeAsBytes(totalBytes, flush: true);
+    final fileName = customFileName ?? 'bharosa_backup_$timestamp.enc';
+
+    // 7. Save file to persistent storage
+    final file = await _writeBackupBytes(bytes: totalBytes, fileName: fileName);
+
+    // 8. Optionally prompt native system save dialog so user can explicitly pick Downloads/Drive
+    if (saveWithSystemDialog) {
+      try {
+        await FilePicker.saveFile(
+          dialogTitle: 'Save Bharosa Encrypted Backup',
+          fileName: fileName,
+          bytes: totalBytes,
+        );
+      } catch (_) {}
+    }
+
+    // Record last backup metadata
+    await _secureStorage.setLastBackupInfo(
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      sizeBytes: totalBytes.length,
+    );
 
     return file;
   }
 
+  /// WhatsApp-Style Automatic Periodic Backup
+  /// Uses the user's master 12-word recovery phrase as the encryption passphrase.
+  /// When reinstalling, entering the 12 words seamlessly restores chats!
+  Future<File> exportAutoBackup() async {
+    final phrase = await _secureStorage.getRecoveryPhrase();
+    if (phrase == null || phrase.trim().isEmpty) {
+      throw StateError('Cannot auto-backup: Master 12-word recovery phrase not initialized');
+    }
+
+    return await exportEncryptedBackup(
+      passphrase: phrase.trim(),
+      customFileName: 'bharosa_auto_backup.enc',
+      saveWithSystemDialog: false,
+    );
+  }
+
+  /// Automatically executes backup if > 24 hours have passed since last backup
+  Future<File?> runAutoBackupIfNeeded() async {
+    final enabled = await _secureStorage.isAutoBackupEnabled();
+    if (!enabled) return null;
+
+    final lastTime = await _secureStorage.getLastBackupTime();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (lastTime != null && (now - lastTime) < oneDay) {
+      return null;
+    }
+
+    try {
+      return await exportAutoBackup();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Intelligent Discovery Algorithm:
-  /// Auto-scans device storage (Downloads, Bharosa_Backups, Documents) for existing backups
+  /// Auto-scans all persistent device folders (Downloads, Documents, External storage) for backups
   Future<List<BackupFileInfo>> scanForLocalBackups() async {
     final results = <BackupFileInfo>[];
     final scannedPaths = <String>{};
 
-    final candidateDirs = <Directory>[];
-
-    // Android standard Downloads directory
-    if (!kIsWeb && Platform.isAndroid) {
-      candidateDirs.add(Directory('/storage/emulated/0/Download/Bharosa_Backups'));
-      candidateDirs.add(Directory('/storage/emulated/0/Download'));
-    }
-
-    // App Documents directory
-    try {
-      final docDir = await getApplicationDocumentsDirectory();
-      candidateDirs.add(Directory(p.join(docDir.path, 'Bharosa_Backups')));
-      candidateDirs.add(docDir);
-    } catch (_) {}
-
-    // External Storage
-    try {
-      final ext = await getExternalStorageDirectory();
-      if (ext != null) {
-        candidateDirs.add(Directory(p.join(ext.path, 'Bharosa_Backups')));
-        candidateDirs.add(ext);
-      }
-    } catch (_) {}
+    final candidateDirs = await getPersistentBackupDirectories();
 
     for (final dir in candidateDirs) {
       try {
@@ -182,17 +261,16 @@ class BackupService {
           if (scannedPaths.contains(entity.path)) continue;
 
           final name = p.basename(entity.path);
-          final isCandidateName = name.startsWith('bharosa_backup') ||
+          final isCandidateName = name.startsWith('bharosa_') ||
               name.endsWith('.enc') ||
               name.endsWith('.bharosa_backup') ||
               name.endsWith('.bharosa');
 
           if (!isCandidateName) continue;
 
-          // Quick inspect header (first 18 bytes)
           try {
             final len = await entity.length();
-            if (len < 64) continue; // Minimum header + salt + nonce + mac
+            if (len < 64) continue; // Minimum size for header + salt + nonce + mac
 
             final raf = await entity.open();
             final headerBytes = await raf.read(utf8.encode(_magicHeader).length);
@@ -209,6 +287,7 @@ class BackupService {
                   sizeBytes: len,
                   modifiedAt: stat.modified,
                   isDefaultDirectory: entity.path.contains('Bharosa_Backups'),
+                  isAutoBackup: name.contains('auto_backup'),
                 ),
               );
             }
@@ -217,8 +296,13 @@ class BackupService {
       } catch (_) {}
     }
 
-    // Sort newest backups first
-    results.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+    // Sort: auto-backups and most recent backups first
+    results.sort((a, b) {
+      if (a.isAutoBackup && !b.isAutoBackup) return -1;
+      if (!a.isAutoBackup && b.isAutoBackup) return 1;
+      return b.modifiedAt.compareTo(a.modifiedAt);
+    });
+
     return results;
   }
 

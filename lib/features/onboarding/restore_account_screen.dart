@@ -9,6 +9,7 @@ import '../../core/crypto/mnemonic_service.dart';
 import '../../core/services/backup_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../data/models/profile.dart';
 
 class RestoreAccountScreen extends ConsumerStatefulWidget {
   const RestoreAccountScreen({super.key});
@@ -129,9 +130,29 @@ class _RestoreAccountScreenState extends ConsumerState<RestoreAccountScreen> wit
 
     setState(() => _isRestoring = true);
     try {
+      final cleanPhrase = _phraseController.text.trim();
+      final backupService = ref.read(backupServiceProvider);
       final authRepo = ref.read(authRepositoryProvider);
-      final profile = await authRepo.restoreFromMnemonic(
-        mnemonic: _phraseController.text.trim(),
+
+      bool chatsRestored = false;
+      Profile? profile;
+
+      // Smart Check: If local auto-backup exists on device, decrypt and restore chats
+      final localBackups = await backupService.scanForLocalBackups();
+      for (final b in localBackups) {
+        try {
+          profile = await backupService.restoreEncryptedBackup(
+            backupFile: File(b.path),
+            passphrase: cleanPhrase,
+          );
+          chatsRestored = true;
+          break;
+        } catch (_) {}
+      }
+
+      // If no local backup file was decrypted, restore cryptographic keys directly
+      profile ??= await authRepo.restoreFromMnemonic(
+        mnemonic: cleanPhrase,
         displayName: _displayNameController.text.trim().isNotEmpty
             ? _displayNameController.text.trim()
             : null,
@@ -144,7 +165,11 @@ class _RestoreAccountScreenState extends ConsumerState<RestoreAccountScreen> wit
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Identity restored successfully! Welcome back, ${profile.displayName}.'),
+          content: Text(
+            chatsRestored
+                ? 'Identity & all chats restored from backup! Welcome back, ${profile.displayName}.'
+                : 'Identity restored successfully! Welcome back, ${profile.displayName}.',
+          ),
           backgroundColor: AppColors.success,
         ),
       );
@@ -425,6 +450,31 @@ class _RestoreAccountScreenState extends ConsumerState<RestoreAccountScreen> wit
                                   '${backup.formattedDate} • ${backup.formattedSize}',
                                   style: AppTypography.caption.copyWith(color: AppColors.grey500),
                                 ),
+                                if (backup.isAutoBackup) ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.success.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.bolt_rounded, size: 12, color: AppColors.success),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Auto-Backup (WhatsApp style)',
+                                          style: AppTypography.caption.copyWith(
+                                            color: AppColors.success,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
