@@ -28,6 +28,7 @@ class SecureStorageService {
   static const _kActiveProfileId = 'bharosa_active_profile_id';
   static const _kScreenshotBlock = 'bharosa_screenshot_block';
   static const _kIncognitoMode = 'bharosa_incognito_mode';
+  static const _kRecoveryPhrase = 'bharosa_recovery_phrase';
 
   /// Generates or retrieves the device master database passphrase
   Future<String> getOrCreateDbPassphrase() async {
@@ -57,6 +58,15 @@ class SecureStorageService {
   Future<Uint8List?> getIdentityPublicKey() async {
     final str = await _storage.read(key: _kIdentityPublicKey);
     return str != null ? base64Decode(str) : null;
+  }
+
+  /// Stores 12-word mnemonic recovery phrase securely
+  Future<void> saveRecoveryPhrase(String phrase) async {
+    await _storage.write(key: _kRecoveryPhrase, value: phrase.trim());
+  }
+
+  Future<String?> getRecoveryPhrase() async {
+    return await _storage.read(key: _kRecoveryPhrase);
   }
 
   /// PIN Authentication Management

@@ -541,4 +541,36 @@ class DatabaseService {
     await db.delete('group_members');
     await db.delete('settings');
   }
+
+  /// Exports all database tables to a structured map for encrypted backup
+  Future<Map<String, dynamic>> exportAllData() async {
+    final db = await database;
+    const tables = ['profiles', 'contacts', 'conversations', 'messages', 'groups', 'group_members', 'settings'];
+    final result = <String, dynamic>{};
+    for (final table in tables) {
+      try {
+        final rows = await db.query(table);
+        result[table] = rows;
+      } catch (_) {}
+    }
+    return result;
+  }
+
+  /// Restores all database tables from a structured map
+  Future<void> importAllData(Map<String, dynamic> data) async {
+    final db = await database;
+    const tables = ['profiles', 'contacts', 'conversations', 'messages', 'groups', 'group_members', 'settings'];
+    await db.transaction((txn) async {
+      for (final table in tables) {
+        if (data.containsKey(table) && data[table] is List) {
+          final rows = data[table] as List;
+          for (final row in rows) {
+            if (row is Map<String, dynamic>) {
+              await txn.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
+            }
+          }
+        }
+      }
+    });
+  }
 }

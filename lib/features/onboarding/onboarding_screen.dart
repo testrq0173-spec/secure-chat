@@ -114,7 +114,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // Bottom Navigation & Dots
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -157,6 +157,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+
+            // Already have an account action
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => context.push('/restore-account'),
+                  icon: const Icon(Icons.settings_backup_restore_rounded, size: 18, color: AppColors.ultraviolet),
+                  label: Text(
+                    'I already have an account',
+                    style: AppTypography.button.copyWith(
+                      color: AppColors.ultraviolet,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

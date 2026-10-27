@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/services/backup_service.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../data/local/database_service.dart';
 import '../data/models/contact.dart';
@@ -18,6 +19,13 @@ final secureStorageProvider = Provider<SecureStorageService>((ref) {
 
 final databaseServiceProvider = Provider<DatabaseService>((ref) {
   return DatabaseService();
+});
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  return BackupService(
+    databaseService: ref.watch(databaseServiceProvider),
+    secureStorage: ref.watch(secureStorageProvider),
+  );
 });
 
 final relayServiceProvider = Provider<IRelayService>((ref) {

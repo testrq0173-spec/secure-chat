@@ -186,6 +186,22 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              const Divider(),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : () => context.push('/restore-account'),
+                  icon: const Icon(Icons.settings_backup_restore_rounded, size: 18),
+                  label: const Text('I already have an account'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.ultraviolet,
+                    side: const BorderSide(color: AppColors.lavender),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

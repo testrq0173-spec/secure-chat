@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../core/crypto/crypto_utils.dart';
+import '../../core/crypto/mnemonic_service.dart';
 import '../../core/services/biometric_service.dart';
 import '../../core/services/screen_protector_service.dart';
 import '../../core/theme/colors.dart';
@@ -78,6 +79,229 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<bool> _promptPinVerification() async {
+    final pinCtrl = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Security Verification'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your 4-digit vault PIN to access your recovery phrase:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              maxLength: 4,
+              textAlign: TextAlign.center,
+              style: const TextStyle(letterSpacing: 8, fontSize: 22, fontWeight: FontWeight.bold),
+              decoration: const InputDecoration(hintText: '••••'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final valid = await ref.read(secureStorageProvider).verifyAppPin(pinCtrl.text);
+              if (ctx.mounted) Navigator.pop(ctx, valid);
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _viewRecoveryPhrase() async {
+    final isPinSet = await ref.read(secureStorageProvider).isPinSet();
+    if (isPinSet) {
+      final ok = await _promptPinVerification();
+      if (!ok) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('PIN verification failed')),
+          );
+        }
+        return;
+      }
+    }
+
+    final authRepo = ref.read(authRepositoryProvider);
+    var phrase = await authRepo.getRecoveryPhrase();
+    if (phrase == null || phrase.isEmpty) {
+      phrase = MnemonicService.generateMnemonic();
+      await ref.read(secureStorageProvider).saveRecoveryPhrase(phrase);
+    }
+
+    if (!mounted) return;
+    final words = phrase.split(' ');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: AppColors.grey200, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.vpn_key_rounded, color: AppColors.ultraviolet, size: 24),
+                const SizedBox(width: 10),
+                Text('Your Secret Recovery Phrase', style: AppTypography.display.copyWith(fontSize: 18)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Write these 12 words down and store them safely. Anyone with these words can restore and access your identity on a new phone.',
+              style: AppTypography.caption.copyWith(color: AppColors.grey500),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(words.length, (i) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.lavender.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.lavender),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${i + 1}. ', style: const TextStyle(color: AppColors.grey500, fontSize: 12)),
+                      Text(words[i], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ],
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: phrase!));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Recovery phrase copied to clipboard!')),
+                  );
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: const Text('Copy to Clipboard'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportBackup() async {
+    final pwdCtrl = TextEditingController();
+    bool obscure = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Export Encrypted Backup'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Set a passphrase to encrypt your backup file. You will need this passphrase to restore your chats on any device.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: pwdCtrl,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  hintText: 'Enter backup passphrase',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Export File'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && pwdCtrl.text.trim().isNotEmpty) {
+      try {
+        final backupService = ref.read(backupServiceProvider);
+        final file = await backupService.exportEncryptedBackup(passphrase: pwdCtrl.text.trim());
+        final stat = await file.stat();
+        final sizeKb = (stat.size / 1024).toStringAsFixed(1);
+
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: AppColors.success),
+                SizedBox(width: 8),
+                Text('Backup Exported!'),
+              ],
+            ),
+            content: Text(
+              'Your encrypted backup has been saved successfully:\n\n'
+              '📁 ${file.path}\n'
+              '📦 Size: $sizeKb KB\n\n'
+              'Keep your backup passphrase safe. Without it, the file cannot be decrypted.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup failed: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
   }
 
   @override
@@ -286,6 +510,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 subtitle: const Text('Manage denied and blocked contacts'),
                 trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
                 onTap: () => context.push('/blocked-users'),
+              ),
+            ]),
+
+            const SizedBox(height: 24),
+
+            _sectionHeader('BACKUP & RECOVERY'),
+            _buildContainer([
+              ListTile(
+                leading: const Icon(Icons.key_rounded, color: AppColors.ultraviolet),
+                title: const Text('12-Word Recovery Phrase'),
+                subtitle: const Text('View master secret phrase to restore on new devices'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
+                onTap: _viewRecoveryPhrase,
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.save_alt_rounded, color: AppColors.ultraviolet),
+                title: const Text('Export Encrypted Backup'),
+                subtitle: const Text('Save encrypted chats & keys to Downloads'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
+                onTap: _exportBackup,
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.settings_backup_restore_rounded, color: AppColors.ultraviolet),
+                title: const Text('Restore / Smart Auto-Check'),
+                subtitle: const Text('Scan local storage or restore from words/file'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.grey500),
+                onTap: () => context.push('/restore-account'),
               ),
             ]),
 

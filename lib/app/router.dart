@@ -7,6 +7,7 @@ import '../features/groups/create_group_screen.dart';
 import '../features/groups/group_info_screen.dart';
 import '../features/profile/create_profile_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
+import '../features/onboarding/restore_account_screen.dart';
 import '../features/onboarding/splash_screen.dart';
 import '../features/security/lock_screen.dart';
 import '../features/security/set_lock_screen.dart';
@@ -25,6 +26,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: '/restore-account',
+      builder: (context, state) => const RestoreAccountScreen(),
     ),
     GoRoute(
       path: '/create-profile',
