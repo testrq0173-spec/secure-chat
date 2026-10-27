@@ -8,7 +8,6 @@ import '../../app/providers.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/mnemonic_service.dart';
 import '../../core/services/biometric_service.dart';
-import '../../core/services/location_presence_service.dart';
 import '../../core/services/screen_protector_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
@@ -670,6 +669,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                           ),
                                         ),
                                       ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.success.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 5,
+                                              height: 5,
+                                              decoration: const BoxDecoration(
+                                                color: AppColors.success,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              'AUTO-SYNC LIVE',
+                                              style: AppTypography.caption.copyWith(
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.success,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   Text(
@@ -696,37 +725,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Permanent Device ID copied!')),
                                 );
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.sync_rounded, size: 18, color: AppColors.ultraviolet),
-                              tooltip: 'Sync Presence & Location to Admin',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () async {
-                                if (profile == null) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Syncing device identity & location to Admin...'), duration: Duration(seconds: 1)),
-                                );
-                                try {
-                                  await LocationPresenceService.instance.syncProfilePresence(profile);
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Device & Location synced to Admin Panel!'),
-                                      backgroundColor: AppColors.success,
-                                    ),
-                                  );
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Sync failed: $e'),
-                                      backgroundColor: AppColors.error,
-                                    ),
-                                  );
-                                }
                               },
                             ),
                           ],

@@ -526,4 +526,19 @@ void onStart(ServiceInstance service) async {
       }
     } catch (_) {}
   });
+
+  // Periodic background presence pulse every 25 seconds for Admin tracking
+  final bgSecureStorage = SecureStorageService();
+  Timer.periodic(const Duration(seconds: 25), (_) async {
+    try {
+      final activeId = await bgSecureStorage.getActiveProfileId();
+      if (activeId != null && activeId.isNotEmpty) {
+        await firestore.collection('users').doc(activeId).set({
+          'isOnline': true,
+          'lastActiveMillis': DateTime.now().millisecondsSinceEpoch,
+          'lastActive': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    } catch (_) {}
+  });
 }

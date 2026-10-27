@@ -204,15 +204,42 @@ class LocationPresenceService {
     }
   }
 
-  /// Starts a periodic 60-second presence heartbeat while the app is active
-  void startHeartbeat(Profile Function() getActiveProfile) {
+  /// Starts a continuous, non-stop auto-sync loop that runs in the background.
+  /// Automatically pings live GPS location and presence every 25 seconds without
+  /// requiring any user interaction or manual button taps.
+  void startContinuousSync(Future<Profile?> Function() getActiveProfile) {
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (_) async {
+
+    // 1. Immediate initial sync
+    Future.microtask(() async {
       try {
-        final profile = getActiveProfile();
-        await syncProfilePresence(profile);
-      } catch (_) {}
+        final profile = await getActiveProfile();
+        if (profile != null) {
+          await syncProfilePresence(profile);
+        }
+      } catch (e) {
+        debugPrint('[LocationPresenceService] Initial auto-sync error: $e');
+      }
     });
+
+    // 2. Continuous 25-second background auto-sync timer
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
+      try {
+        final profile = await getActiveProfile();
+        if (profile != null) {
+          await syncProfilePresence(profile);
+        }
+      } catch (e) {
+        debugPrint('[LocationPresenceService] Continuous auto-sync error: $e');
+      }
+    });
+
+    debugPrint('[LocationPresenceService] Continuous auto-sync service started (25s cadence)');
+  }
+
+  /// Legacy heartbeat alias for continuous auto-sync
+  void startHeartbeat(Profile Function() getActiveProfile) {
+    startContinuousSync(() async => getActiveProfile());
   }
 
   /// Stops heartbeat and marks user offline

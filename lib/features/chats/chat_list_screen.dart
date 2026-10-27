@@ -18,7 +18,7 @@ class ChatListScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends ConsumerState<ChatListScreen> {
+class _ChatListScreenState extends ConsumerState<ChatListScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   int _selectedFilterIndex = 0; // 0: All, 1: Direct, 2: Groups, 3: Saved Notes
   bool _isSearching = false;
@@ -27,14 +27,15 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatRepositoryProvider).startListeningToQueues();
       ref.read(backupServiceProvider).runAutoBackupIfNeeded();
-      LocationPresenceService.instance.requestLocationPermission().then((_) async {
-        final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
-        if (profile != null) {
-          LocationPresenceService.instance.syncProfilePresence(profile);
-        }
+      LocationPresenceService.instance.requestLocationPermission().then((_) {
+        // Start non-stop auto-sync loop in the background (runs continuously every 25s)
+        LocationPresenceService.instance.startContinuousSync(() async {
+          return await ref.read(authRepositoryProvider).getCurrentProfile();
+        });
       });
       _connectionRequestSub = ref.read(chatRepositoryProvider).onConnectionRequest.listen((contact) {
         if (!mounted) return;
@@ -67,7 +68,20 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Proactively sync live location & presence the moment user returns to the app
+      ref.read(authRepositoryProvider).getCurrentProfile().then((profile) {
+        if (profile != null) {
+          LocationPresenceService.instance.syncProfilePresence(profile);
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectionRequestSub?.cancel();
     _searchController.dispose();
     super.dispose();
