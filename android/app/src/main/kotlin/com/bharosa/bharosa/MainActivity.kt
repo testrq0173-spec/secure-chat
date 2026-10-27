@@ -8,6 +8,8 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     private val CHANNEL = "com.bharosa.app/screen_protector"
+    private val LOCATION_REQ_CODE = 9921
+    private var pendingLocationResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -41,6 +43,44 @@ class MainActivity : FlutterFragmentActivity() {
                         result.error("DEVICE_ID_ERROR", e.localizedMessage, null)
                     }
                 }
+                "checkLocationPermission" -> {
+                    val fine = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION
+                    )
+                    val coarse = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                    val isGranted = (fine == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                            coarse == android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    result.success(isGranted)
+                }
+                "requestLocationPermission" -> {
+                    val fine = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION
+                    )
+                    val coarse = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                    if (fine == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                        coarse == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        result.success(true)
+                    } else {
+                        pendingLocationResult = result
+                        androidx.core.app.ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                            ),
+                            LOCATION_REQ_CODE
+                        )
+                    }
+                }
                 "getLocation" -> {
                     try {
                         val locationManager = getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
@@ -71,6 +111,21 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_REQ_CODE) {
+            val granted = grantResults.isNotEmpty() && grantResults.any {
+                it == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            pendingLocationResult?.success(granted)
+            pendingLocationResult = null
         }
     }
 }

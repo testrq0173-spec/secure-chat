@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../app/providers.dart';
+import '../../core/services/location_presence_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -29,6 +30,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(chatRepositoryProvider).startListeningToQueues();
       ref.read(backupServiceProvider).runAutoBackupIfNeeded();
+      LocationPresenceService.instance.requestLocationPermission().then((_) async {
+        final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
+        if (profile != null) {
+          LocationPresenceService.instance.syncProfilePresence(profile);
+        }
+      });
       _connectionRequestSub = ref.read(chatRepositoryProvider).onConnectionRequest.listen((contact) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

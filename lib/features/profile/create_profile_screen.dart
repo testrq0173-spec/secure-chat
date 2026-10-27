@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../app/providers.dart';
 import '../../core/services/device_identity_service.dart';
+import '../../core/services/location_presence_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -36,6 +37,8 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
     if (mounted) {
       setState(() => _permanentDeviceId = devId);
     }
+    // Proactively request Android OS location permission so user is prompted
+    await LocationPresenceService.instance.requestLocationPermission();
   }
 
   @override

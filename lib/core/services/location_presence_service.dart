@@ -63,12 +63,40 @@ class LocationPresenceService {
   Timer? _heartbeatTimer;
   UserLocation? _lastKnownLocation;
 
+  /// Checks whether location permission is granted on Android
+  Future<bool> isLocationPermissionGranted() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final res = await _channel.invokeMethod<bool>('checkLocationPermission');
+        return res ?? false;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  /// Prompts Android OS runtime permission dialog for fine/coarse location
+  Future<bool> requestLocationPermission() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final res = await _channel.invokeMethod<bool>('requestLocationPermission');
+        return res ?? false;
+      } catch (e) {
+        debugPrint('[LocationPresenceService] requestLocationPermission error: $e');
+      }
+    }
+    return false;
+  }
+
   /// Retrieves current location using native GPS hardware, with automatic
   /// high-precision IP Geo fallback when GPS is restricted or on emulator/desktop.
   Future<UserLocation> getCurrentLocation() async {
     // 1. Try Native Android LocationManager
     if (!kIsWeb && Platform.isAndroid) {
       try {
+        final hasPerm = await isLocationPermissionGranted();
+        if (!hasPerm) {
+          await requestLocationPermission();
+        }
         final res = await _channel.invokeMethod<Map>('getLocation');
         if (res != null && res['latitude'] != null && res['longitude'] != null) {
           final lat = (res['latitude'] as num).toDouble();

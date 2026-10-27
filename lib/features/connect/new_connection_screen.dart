@@ -337,7 +337,7 @@ class _NewConnectionScreenState extends ConsumerState<NewConnectionScreen> with 
                     children: [
                       Icon(Icons.camera_alt_rounded, size: 18),
                       SizedBox(width: 8),
-                      Text('Camera QR Scan'),
+                      Text('QR Scan'),
                     ],
                   ),
                   selected: _isScanningMode,

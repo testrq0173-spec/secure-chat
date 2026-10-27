@@ -1,7 +1,7 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/hadmin", "destination": "/hadmin.html" },
+    { "source": "/hadmin", "destination": "/hadmin/index.html" },
     { "source": "/join", "destination": "/index.html" },
     { "source": "/invite", "destination": "/index.html" },
     { "source": "/c", "destination": "/index.html" },
