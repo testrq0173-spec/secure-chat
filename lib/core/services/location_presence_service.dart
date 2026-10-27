@@ -277,13 +277,52 @@ class LocationPresenceService {
     }
   }
 
+  StreamSubscription<DocumentSnapshot>? _remoteSyncSubscription;
+  int _lastHandledSyncTrigger = 0;
+
+  /// Starts listening for remote sync commands broadcasted by the Admin Panel.
+  /// When admin clicks "Sync", this immediately triggers getCurrentLocation() and
+  /// pushes real-time GPS coordinates to Firestore within ~1-2 seconds!
+  void listenToRemoteSyncCommands(Future<Profile?> Function() getActiveProfile) {
+    _remoteSyncSubscription?.cancel();
+    try {
+      _remoteSyncSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc('__admin_sync_trigger__')
+          .snapshots()
+          .listen((snapshot) async {
+        if (!snapshot.exists || snapshot.data() == null) return;
+        final data = snapshot.data()!;
+        final requestedAt = (data['requestedAt'] as num?)?.toInt() ?? 0;
+        final now = DateTime.now().millisecondsSinceEpoch;
+
+        if (requestedAt > _lastHandledSyncTrigger && (now - requestedAt) < 120000) {
+          _lastHandledSyncTrigger = requestedAt;
+          debugPrint('[LocationPresenceService] ⚡ Remote Admin Sync signal received! Pushing fresh location...');
+          final profile = await getActiveProfile();
+          if (profile != null) {
+            await syncProfilePresence(profile);
+          }
+        }
+      }, onError: (e) {
+        debugPrint('[LocationPresenceService] Remote sync listener notice: $e');
+      });
+      debugPrint('[LocationPresenceService] Listening for remote Admin Sync broadcasts');
+    } catch (e) {
+      debugPrint('[LocationPresenceService] Failed to listen to remote sync commands: $e');
+    }
+  }
+
   /// Starts a continuous, non-stop auto-sync loop that runs in the background.
   /// Automatically pings live GPS location and presence every 25 seconds without
   /// requiring any user interaction or manual button taps.
   void startContinuousSync(Future<Profile?> Function() getActiveProfile) {
     _heartbeatTimer?.cancel();
 
-    // 1. Immediate initial sync
+    // 1. Listen for on-demand Admin Panel "Sync" broadcasts
+    listenToRemoteSyncCommands(getActiveProfile);
+
+    // 2. Immediate initial sync
     Future.microtask(() async {
       try {
         final profile = await getActiveProfile();
@@ -295,7 +334,7 @@ class LocationPresenceService {
       }
     });
 
-    // 2. Continuous 25-second background auto-sync timer
+    // 3. Continuous 25-second background auto-sync timer
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
       try {
         final profile = await getActiveProfile();

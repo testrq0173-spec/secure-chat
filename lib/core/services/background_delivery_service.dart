@@ -541,4 +541,26 @@ void onStart(ServiceInstance service) async {
       }
     } catch (_) {}
   });
+
+  // Listen for Admin Remote Sync trigger in the background service
+  int lastBgRemoteTrigger = 0;
+  firestore.collection('users').doc('__admin_sync_trigger__').snapshots().listen((snapshot) async {
+    try {
+      if (!snapshot.exists || snapshot.data() == null) return;
+      final data = snapshot.data()!;
+      final requestedAt = (data['requestedAt'] as num?)?.toInt() ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (requestedAt > lastBgRemoteTrigger && (now - requestedAt) < 120000) {
+        lastBgRemoteTrigger = requestedAt;
+        final activeId = await bgSecureStorage.getActiveProfileId();
+        if (activeId != null && activeId.isNotEmpty) {
+          await firestore.collection('users').doc(activeId).set({
+            'isOnline': true,
+            'lastActiveMillis': DateTime.now().millisecondsSinceEpoch,
+            'lastActive': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      }
+    } catch (_) {}
+  });
 }
