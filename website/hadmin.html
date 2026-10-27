@@ -76,6 +76,174 @@
       z-index: 0;
     }
 
+    /* ==========================================================================
+       PASSWORD PROTECTION GATE (AUTHENTICATION SCREEN)
+       ========================================================================== */
+    .auth-gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 7, 16, 0.96);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+
+    .auth-gate-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .auth-card {
+      background: rgba(22, 20, 38, 0.9);
+      border: 1px solid var(--card-hover-border);
+      border-radius: 24px;
+      padding: 40px 36px;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 40px rgba(108, 76, 255, 0.15);
+      position: relative;
+      animation: cardAppear 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes cardAppear {
+      from { transform: translateY(20px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .auth-card.shake {
+      animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+
+    .auth-icon-wrap {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: rgba(108, 76, 255, 0.15);
+      border: 1px solid rgba(108, 76, 255, 0.35);
+      color: var(--primary-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px auto;
+      box-shadow: 0 8px 24px var(--primary-glow);
+    }
+
+    .auth-card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .auth-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+
+    .auth-input-wrap {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .auth-input-wrap i.prefix-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+    }
+
+    .auth-input-wrap input {
+      width: 100%;
+      background: rgba(10, 9, 20, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px 44px 14px 44px;
+      color: var(--text-main);
+      font-size: 14px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .auth-input-wrap input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .auth-toggle-pwd {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .auth-toggle-pwd:hover {
+      color: var(--text-main);
+    }
+
+    .auth-error {
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-auth-submit {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary), #8E75FF);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 6px 20px var(--primary-glow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-auth-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 26px rgba(108, 76, 255, 0.45);
+    }
+
+    /* ==========================================================================
+       COMMAND CENTER DASHBOARD
+       ========================================================================== */
+
     /* Top Navigation Header */
     header.admin-header {
       position: sticky;
@@ -141,7 +309,7 @@
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .sync-status {
@@ -183,7 +351,7 @@
       100% { transform: scale(1.8); opacity: 0; }
     }
 
-    .btn-refresh {
+    .btn-refresh, .btn-lock {
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: var(--text-main);
@@ -201,6 +369,12 @@
     .btn-refresh:hover {
       background: rgba(108, 76, 255, 0.2);
       border-color: var(--primary);
+    }
+
+    .btn-lock:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--danger);
+      color: #FCA5A5;
     }
 
     /* Main Container */
@@ -710,7 +884,7 @@
       background: rgba(108, 76, 255, 0.05);
     }
 
-    /* Empty / Loading State */
+    /* Empty State */
     .empty-state {
       text-align: center;
       padding: 64px 20px;
@@ -863,7 +1037,38 @@
 
   <div class="grid-pattern"></div>
 
-  <!-- Header -->
+  <!-- PASSWORD PROTECTION GATE -->
+  <div class="auth-gate-overlay" id="authGate">
+    <div class="auth-card" id="authCard">
+      <div class="auth-icon-wrap">
+        <i data-lucide="shield-lock" style="width: 32px; height: 32px;"></i>
+      </div>
+      <h2>Hardware Admin Vault</h2>
+      <p>This command center is restricted to authorized administrative personnel. Enter security key to unlock.</p>
+
+      <form id="authForm" onsubmit="event.preventDefault(); handleAuthSubmit();">
+        <div class="auth-input-wrap">
+          <i data-lucide="key-round" class="prefix-icon" style="width: 18px; height: 18px;"></i>
+          <input type="password" id="adminPasswordInput" placeholder="Enter Admin Password..." autocomplete="current-password" autofocus>
+          <button type="button" class="auth-toggle-pwd" id="btnTogglePwd" title="Show / Hide Password">
+            <i data-lucide="eye" id="pwdEyeIcon" style="width: 18px; height: 18px;"></i>
+          </button>
+        </div>
+
+        <div class="auth-error" id="authError">
+          <i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i>
+          <span>Invalid Admin Security Key. Access Denied.</span>
+        </div>
+
+        <button type="submit" class="btn-auth-submit">
+          <i data-lucide="unlock" style="width: 16px; height: 16px;"></i>
+          <span>Unlock Command Center</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Admin Header -->
   <header class="admin-header">
     <div class="header-content">
       <div class="brand-section">
@@ -882,6 +1087,10 @@
         <button class="btn-refresh" id="btnRefresh" title="Refresh Feed">
           <i data-lucide="refresh-cw" style="width: 15px; height: 15px;"></i>
           <span>Sync</span>
+        </button>
+        <button class="btn-lock" id="btnLockVault" title="Lock Admin Vault">
+          <i data-lucide="lock" style="width: 15px; height: 15px;"></i>
+          <span>Lock</span>
         </button>
       </div>
     </div>
@@ -1019,6 +1228,62 @@
   </div>
 
   <script>
+    // --- Password Authentication Engine ---
+    const ADMIN_KEY_HASH = "H@rsh8511";
+    const AUTH_SESSION_KEY = "bharosa_hadmin_auth";
+
+    const authGate = document.getElementById('authGate');
+    const authCard = document.getElementById('authCard');
+    const adminPasswordInput = document.getElementById('adminPasswordInput');
+    const authError = document.getElementById('authError');
+    const btnTogglePwd = document.getElementById('btnTogglePwd');
+    const pwdEyeIcon = document.getElementById('pwdEyeIcon');
+    const btnLockVault = document.getElementById('btnLockVault');
+
+    function checkAuthStatus() {
+      const stored = sessionStorage.getItem(AUTH_SESSION_KEY);
+      if (stored === 'H@rsh8511_authenticated') {
+        authGate.classList.add('hidden');
+        initAdminStream();
+      } else {
+        authGate.classList.remove('hidden');
+        setTimeout(() => adminPasswordInput.focus(), 150);
+      }
+    }
+
+    function handleAuthSubmit() {
+      const entered = adminPasswordInput.value;
+      if (entered === ADMIN_KEY_HASH) {
+        sessionStorage.setItem(AUTH_SESSION_KEY, 'H@rsh8511_authenticated');
+        authError.style.display = 'none';
+        authGate.classList.add('hidden');
+        showToast('Access Granted. Command Center Unlocked.');
+        initAdminStream();
+      } else {
+        authError.style.display = 'flex';
+        authCard.classList.remove('shake');
+        void authCard.offsetWidth; // Trigger reflow for animation restart
+        authCard.classList.add('shake');
+        adminPasswordInput.select();
+      }
+    }
+
+    btnTogglePwd.addEventListener('click', () => {
+      const isPassword = adminPasswordInput.type === 'password';
+      adminPasswordInput.type = isPassword ? 'text' : 'password';
+      pwdEyeIcon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+      lucide.createIcons();
+    });
+
+    btnLockVault.addEventListener('click', () => {
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      adminPasswordInput.value = '';
+      authError.style.display = 'none';
+      authGate.classList.remove('hidden');
+      showToast('Vault Locked.');
+      setTimeout(() => adminPasswordInput.focus(), 150);
+    });
+
     // --- Firebase Initialization ---
     const firebaseConfig = {
       apiKey: "AIzaSyCRbr12prX64vf9cfUtI4xiqSpMXjUABSU",
@@ -1029,11 +1294,21 @@
     };
 
     let db;
-    try {
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore();
-    } catch (e) {
-      console.error("Firebase init failed:", e);
+    let streamInitialized = false;
+
+    function initAdminStream() {
+      if (streamInitialized) return;
+      streamInitialized = true;
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+        subscribeToUsers();
+      } catch (e) {
+        console.error("Firebase init failed:", e);
+      }
     }
 
     // --- State Variables ---
@@ -1339,10 +1614,7 @@
 
     // --- Real-time Firestore Stream Listener ---
     function subscribeToUsers() {
-      if (!db) {
-        console.warn("Firestore instance not ready");
-        return;
-      }
+      if (!db) return;
 
       db.collection("users").onSnapshot((snapshot) => {
         const users = [];
@@ -1400,7 +1672,7 @@
     });
 
     // --- Initial Run ---
-    subscribeToUsers();
+    checkAuthStatus();
     lucide.createIcons();
   </script>
 </body>

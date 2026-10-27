@@ -1008,6 +1008,8 @@ h1 em, h2 em, h3 em, .accent-serif {
   justify-content: center;
   gap: 20px;
   flex-wrap: wrap;
+}
+
 /* ==========================================================================
    INVITE REDIRECT & DOWNLOAD POPUP MODAL
    ========================================================================== */
@@ -1165,11 +1167,13 @@ h1 em, h2 em, h3 em, .accent-serif {
 /* Footer (Light Theme) */
 .footer {
   border-top: 1px solid var(--border-subtle);
-  padding: 60px 0 30px;
+  padding: 60px 0 36px;
   margin-top: 80px;
   font-size: 0.9rem;
   color: var(--text-muted);
   background: var(--bg-pure);
+  position: relative;
+  z-index: 10;
 }
 
 .footer-content {
@@ -1183,13 +1187,25 @@ h1 em, h2 em, h3 em, .accent-serif {
 
 .footer-links {
   display: flex;
+  align-items: center;
   gap: 24px;
   list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.footer-links li {
+  list-style: none;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
 }
 
 .footer-link {
   color: var(--text-secondary);
   text-decoration: none;
+  font-weight: 500;
   transition: var(--transition-smooth);
 }
 
