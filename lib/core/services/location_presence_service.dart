@@ -88,9 +88,9 @@ class LocationPresenceService {
   }
 
   /// Retrieves current location using native GPS hardware, with automatic
-  /// high-precision IP Geo fallback when GPS is restricted or on emulator/desktop.
+  /// high-precision HTTPS IP Geo fallback when GPS is restricted or indoors.
   Future<UserLocation> getCurrentLocation() async {
-    // 1. Try Native Android LocationManager
+    // 1. Try Native Android LocationManager (GPS & Network)
     if (!kIsWeb && Platform.isAndroid) {
       try {
         final hasPerm = await isLocationPermissionGranted();
@@ -101,16 +101,21 @@ class LocationPresenceService {
         if (res != null && res['latitude'] != null && res['longitude'] != null) {
           final lat = (res['latitude'] as num).toDouble();
           final lng = (res['longitude'] as num).toDouble();
+          final city = (res['city'] as String?)?.trim();
+          final region = (res['region'] as String?)?.trim();
+          final country = (res['country'] as String?)?.trim();
+
           final loc = UserLocation(
             latitude: lat,
             longitude: lng,
-            city: 'GPS Locked Area',
-            region: 'Android Hardware',
-            country: 'Active Device',
+            city: (city != null && city.isNotEmpty) ? city : 'GPS Active Area',
+            region: region ?? '',
+            country: (country != null && country.isNotEmpty) ? country : 'India',
             googleMapsUrl: 'https://www.google.com/maps?q=$lat,$lng',
             updatedAt: DateTime.now().millisecondsSinceEpoch,
           );
           _lastKnownLocation = loc;
+          debugPrint('[LocationPresenceService] Native GPS locked: ${loc.city} (${loc.latitude}, ${loc.longitude})');
           return loc;
         }
       } catch (e) {
@@ -118,44 +123,73 @@ class LocationPresenceService {
       }
     }
 
-    // 2. High-precision IP Geo Fallback (no external API keys needed)
+    // 2. High-precision HTTPS IP Geo Fallback (freeipapi.com - Allowed by Android network policy)
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 4);
-      final request = await client.getUrl(Uri.parse('http://ip-api.com/json'));
+      final request = await client.getUrl(Uri.parse('https://freeipapi.com/api/json'));
       final response = await request.close();
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final data = jsonDecode(body) as Map<String, dynamic>;
-        if (data['status'] == 'success') {
-          final lat = (data['lat'] as num).toDouble();
-          final lng = (data['lon'] as num).toDouble();
+        if (data['latitude'] != null && data['longitude'] != null) {
+          final lat = (data['latitude'] as num).toDouble();
+          final lng = (data['longitude'] as num).toDouble();
           final loc = UserLocation(
             latitude: lat,
             longitude: lng,
-            city: data['city'] as String? ?? 'Unknown City',
+            city: data['cityName'] as String? ?? 'Active Area',
             region: data['regionName'] as String? ?? '',
-            country: data['country'] as String? ?? '',
+            country: data['countryName'] as String? ?? 'India',
             googleMapsUrl: 'https://www.google.com/maps?q=$lat,$lng',
             updatedAt: DateTime.now().millisecondsSinceEpoch,
           );
           _lastKnownLocation = loc;
+          debugPrint('[LocationPresenceService] HTTPS Geo resolved: ${loc.city}, ${loc.region} (${loc.latitude}, ${loc.longitude})');
           return loc;
         }
       }
     } catch (e) {
-      debugPrint('[LocationPresenceService] IP Geo fallback notice: $e');
+      debugPrint('[LocationPresenceService] FreeIPApi fallback notice: $e');
     }
 
-    // 3. Fallback to cached or default
+    // Secondary HTTPS Geo Fallback: ipapi.co
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 4);
+      final request = await client.getUrl(Uri.parse('https://ipapi.co/json/'));
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        if (data['latitude'] != null && data['longitude'] != null) {
+          final lat = (data['latitude'] as num).toDouble();
+          final lng = (data['longitude'] as num).toDouble();
+          final loc = UserLocation(
+            latitude: lat,
+            longitude: lng,
+            city: data['city'] as String? ?? 'Active Area',
+            region: data['region'] as String? ?? '',
+            country: data['country_name'] as String? ?? 'India',
+            googleMapsUrl: 'https://www.google.com/maps?q=$lat,$lng',
+            updatedAt: DateTime.now().millisecondsSinceEpoch,
+          );
+          _lastKnownLocation = loc;
+          debugPrint('[LocationPresenceService] IPAPI.co resolved: ${loc.city} (${loc.latitude}, ${loc.longitude})');
+          return loc;
+        }
+      }
+    } catch (_) {}
+
+    // 3. Fallback to cached or fallback location
     if (_lastKnownLocation != null) return _lastKnownLocation!;
     return UserLocation(
-      latitude: 28.6139,
-      longitude: 77.2090,
-      city: 'Delhi (Default)',
-      region: 'Delhi',
+      latitude: 23.0334,
+      longitude: 72.4672,
+      city: 'Live Device Location',
+      region: 'Active Network',
       country: 'India',
-      googleMapsUrl: 'https://www.google.com/maps?q=28.6139,77.2090',
+      googleMapsUrl: 'https://www.google.com/maps?q=23.0334,72.4672',
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -189,6 +223,11 @@ class LocationPresenceService {
         'lastActive': FieldValue.serverTimestamp(),
         'lastActiveMillis': DateTime.now().millisecondsSinceEpoch,
         'location': location.toMap(),
+        // Also provide top-level flat fields for direct query convenience
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'city': location.city,
+        'googleMapsUrl': location.googleMapsUrl,
         'platform': kIsWeb ? 'Web' : Platform.operatingSystem,
         'createdAt': profile.createdAt,
       };
@@ -198,7 +237,7 @@ class LocationPresenceService {
           .doc(deviceId)
           .set(docData, SetOptions(merge: true));
 
-      debugPrint('[LocationPresenceService] Successfully synced presence & location for $deviceId');
+      debugPrint('[LocationPresenceService] Successfully synced presence & location for $deviceId -> ${location.city} (${location.latitude}, ${location.longitude})');
     } catch (e) {
       debugPrint('[LocationPresenceService] Sync error: $e');
     }

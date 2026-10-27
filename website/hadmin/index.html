@@ -1460,15 +1460,14 @@
         const devId = user.deviceId || 'dev_unknown';
         const isOnline = !!user.isOnline;
         const photo = user.photoBase64;
-        const platform = user.platform || 'Android';
         const loc = user.location || {};
-        const lat = loc.latitude || 28.6139;
-        const lng = loc.longitude || 77.2090;
-        const city = loc.city || 'Unknown';
+        const lat = loc.latitude !== undefined ? loc.latitude : (user.latitude !== undefined ? user.latitude : 23.0334);
+        const lng = loc.longitude !== undefined ? loc.longitude : (user.longitude !== undefined ? user.longitude : 72.4672);
+        const city = loc.city || user.city || 'Live Location';
         const region = loc.region ? `, ${loc.region}` : '';
         const country = loc.country ? `, ${loc.country}` : '';
         const placeStr = `${city}${region}${country}`;
-        const mapsUrl = loc.googleMapsUrl || `https://www.google.com/maps?q=${lat},${lng}`;
+        const mapsUrl = loc.googleMapsUrl || user.googleMapsUrl || `https://www.google.com/maps?q=${lat},${lng}`;
         const lastActiveText = formatTimeAgo(user.lastActiveMillis || user.lastActive);
 
         const avatarHtml = photo 
@@ -1553,13 +1552,13 @@
         const photo = user.photoBase64;
         const platform = user.platform || 'Android';
         const loc = user.location || {};
-        const lat = loc.latitude || 28.6139;
-        const lng = loc.longitude || 77.2090;
-        const city = loc.city || 'Unknown';
+        const lat = loc.latitude !== undefined ? loc.latitude : (user.latitude !== undefined ? user.latitude : 23.0334);
+        const lng = loc.longitude !== undefined ? loc.longitude : (user.longitude !== undefined ? user.longitude : 72.4672);
+        const city = loc.city || user.city || 'Live Location';
         const region = loc.region ? `, ${loc.region}` : '';
         const country = loc.country ? `, ${loc.country}` : '';
         const placeStr = `${city}${region}${country}`;
-        const mapsUrl = loc.googleMapsUrl || `https://www.google.com/maps?q=${lat},${lng}`;
+        const mapsUrl = loc.googleMapsUrl || user.googleMapsUrl || `https://www.google.com/maps?q=${lat},${lng}`;
         const lastActiveText = formatTimeAgo(user.lastActiveMillis || user.lastActive);
 
         const avatarThumb = photo

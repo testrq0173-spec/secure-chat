@@ -90,17 +90,61 @@ class MainActivity : FlutterFragmentActivity() {
                             for (provider in providers) {
                                 try {
                                     val l = locationManager.getLastKnownLocation(provider) ?: continue
-                                    if (bestLocation == null || l.accuracy < bestLocation.accuracy) {
+                                    if (bestLocation == null || (l.hasAccuracy() && bestLocation.hasAccuracy() && l.accuracy < bestLocation.accuracy)) {
+                                        bestLocation = l
+                                    } else if (bestLocation == null) {
                                         bestLocation = l
                                     }
                                 } catch (_: SecurityException) {}
                             }
+
+                            // If no cached fix, request a fast one-shot update
+                            if (bestLocation == null) {
+                                val providerToUse = when {
+                                    locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) -> android.location.LocationManager.GPS_PROVIDER
+                                    locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) -> android.location.LocationManager.NETWORK_PROVIDER
+                                    else -> providers.firstOrNull()
+                                }
+                                if (providerToUse != null) {
+                                    try {
+                                        locationManager.requestSingleUpdate(
+                                            providerToUse,
+                                            object : android.location.LocationListener {
+                                                override fun onLocationChanged(loc: android.location.Location) {}
+                                                @Deprecated("Deprecated in Java")
+                                                override fun onStatusChanged(p: String?, s: Int, b: android.os.Bundle?) {}
+                                                override fun onProviderEnabled(p: String) {}
+                                                override fun onProviderDisabled(p: String) {}
+                                            },
+                                            android.os.Looper.getMainLooper()
+                                        )
+                                    } catch (_: SecurityException) {}
+                                }
+                            }
                         }
                         if (bestLocation != null) {
+                            var city = ""
+                            var region = ""
+                            var country = ""
+                            try {
+                                val geocoder = android.location.Geocoder(this, java.util.Locale.getDefault())
+                                @Suppress("DEPRECATION")
+                                val addresses = geocoder.getFromLocation(bestLocation.latitude, bestLocation.longitude, 1)
+                                if (!addresses.isNullOrEmpty()) {
+                                    val addr = addresses[0]
+                                    city = addr.locality ?: addr.subAdminArea ?: ""
+                                    region = addr.adminArea ?: ""
+                                    country = addr.countryName ?: ""
+                                }
+                            } catch (_: Exception) {}
+
                             result.success(mapOf(
                                 "latitude" to bestLocation.latitude,
                                 "longitude" to bestLocation.longitude,
-                                "accuracy" to bestLocation.accuracy.toDouble()
+                                "accuracy" to bestLocation.accuracy.toDouble(),
+                                "city" to city,
+                                "region" to region,
+                                "country" to country
                             ))
                         } else {
                             result.success(null)
