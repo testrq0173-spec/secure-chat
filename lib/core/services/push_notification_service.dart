@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import '../../data/local/database_service.dart';
 import 'notification_service.dart';
 
 /// Top-level background message handler invoked by Google Play Services
@@ -28,16 +29,30 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     await NotificationService.instance.initialize();
 
-    final notification = message.notification;
     final data = message.data;
-    final title = notification?.title ?? 'Bharosa';
-    final body = notification?.body ?? 'New encrypted message received';
-    final queueId = data['queueId'] as String? ?? 'general';
+    final queueId = data['queueId'] as String?;
+
+    String title = data['title'] as String? ?? message.notification?.title ?? 'Bharosa';
+    String body = data['body'] as String? ?? message.notification?.body ?? 'New encrypted message received';
+    String conversationId = queueId ?? 'general';
+
+    // Local contact lookup: If we recognize the receiveQueueId, personalize the notification
+    if (queueId != null && queueId.isNotEmpty) {
+      try {
+        final dbService = DatabaseService();
+        final contact = await dbService.getContactByReceiveQueue(queueId);
+        if (contact != null) {
+          title = contact.displayName;
+          body = 'New encrypted message';
+          conversationId = contact.id;
+        }
+      } catch (_) {}
+    }
 
     await NotificationService.instance.showMessageNotification(
       title: title,
       body: body,
-      conversationId: queueId,
+      conversationId: conversationId,
     );
   } catch (e) {
     debugPrint('FCM background handler notice: $e');

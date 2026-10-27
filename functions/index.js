@@ -17,23 +17,33 @@ exports.onPacketReceived = onDocumentCreated("queues/{queueId}/packets/{packetId
   const fcmToken = queueDoc.data()?.fcmToken;
   if (!fcmToken) return;
 
-  // Zero PII push notification: strictly generic alert
+  // High-priority Wake-up push notification (bypasses Doze Mode)
   const message = {
     token: fcmToken,
     data: {
       type: "QUEUE_PACKET_ARRIVED",
       queueId: queueId,
-    },
-    notification: {
       title: "Bharosa",
       body: "New encrypted message received",
     },
     android: {
       priority: "high",
+      notification: {
+        channelId: "bharosa_messages",
+        priority: "high",
+        defaultSound: true,
+        defaultVibrateTimings: true,
+      },
     },
     apns: {
       headers: {
         "apns-priority": "10",
+      },
+      payload: {
+        aps: {
+          "content-available": 1,
+          sound: "default",
+        },
       },
     },
   };
