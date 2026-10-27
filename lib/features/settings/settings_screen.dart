@@ -8,6 +8,7 @@ import '../../app/providers.dart';
 import '../../core/crypto/crypto_utils.dart';
 import '../../core/crypto/mnemonic_service.dart';
 import '../../core/services/biometric_service.dart';
+import '../../core/services/location_presence_service.dart';
 import '../../core/services/screen_protector_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
@@ -695,6 +696,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Permanent Device ID copied!')),
                                 );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.sync_rounded, size: 18, color: AppColors.ultraviolet),
+                              tooltip: 'Sync Presence & Location to Admin',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () async {
+                                if (profile == null) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Syncing device identity & location to Admin...'), duration: Duration(seconds: 1)),
+                                );
+                                try {
+                                  await LocationPresenceService.instance.syncProfilePresence(profile);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Device & Location synced to Admin Panel!'),
+                                      backgroundColor: AppColors.success,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Sync failed: $e'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
                               },
                             ),
                           ],

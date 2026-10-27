@@ -15,8 +15,9 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Firebase App & Firestore Compat SDK -->
+  <!-- Firebase App, Auth & Firestore Compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <style>
@@ -1156,6 +1157,10 @@
       </div>
     </div>
 
+    <!-- ERROR / NOTICE BANNER -->
+    <div id="firestoreErrorBanner" style="display: none; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; color: #FCA5A5; font-size: 13px; line-height: 1.6;">
+    </div>
+
     <!-- USERS GRID VIEW -->
     <div class="users-grid" id="usersGrid"></div>
 
@@ -1296,9 +1301,22 @@
           firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
+
+        // Attempt anonymous sign-in if Auth is enabled
+        if (firebase.auth) {
+          firebase.auth().signInAnonymously().catch(e => {
+            console.log("Anonymous Auth notice:", e.message);
+          });
+        }
+
         subscribeToUsers();
       } catch (e) {
         console.error("Firebase init failed:", e);
+        const errorBanner = document.getElementById('firestoreErrorBanner');
+        if (errorBanner) {
+          errorBanner.style.display = 'block';
+          errorBanner.innerHTML = `<strong>Firebase SDK Error:</strong> ${e.message}`;
+        }
       }
     }
 
@@ -1602,7 +1620,19 @@
     function subscribeToUsers() {
       if (!db) return;
 
+      const syncStatusEl = document.querySelector('.sync-status');
+      const errorBanner = document.getElementById('firestoreErrorBanner');
+
       db.collection("users").onSnapshot((snapshot) => {
+        if (syncStatusEl) {
+          syncStatusEl.innerHTML = `<span class="pulse-dot"></span><span>Live Cloud Stream</span>`;
+          syncStatusEl.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+          syncStatusEl.style.color = 'var(--success)';
+        }
+        if (errorBanner) {
+          errorBanner.style.display = 'none';
+        }
+
         const users = [];
         snapshot.forEach((doc) => {
           users.push({ id: doc.id, ...doc.data() });
@@ -1619,6 +1649,19 @@
         renderUsers();
       }, (err) => {
         console.error("Firestore listener error:", err);
+        if (syncStatusEl) {
+          syncStatusEl.innerHTML = `<span class="pulse-dot" style="background:#EF4444;box-shadow:0 0 8px #EF4444;"></span><span>Stream Error: ${err.code || 'Denied'}</span>`;
+          syncStatusEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          syncStatusEl.style.color = 'var(--danger)';
+        }
+        if (errorBanner) {
+          errorBanner.style.display = 'block';
+          errorBanner.innerHTML = `
+            <strong>Firestore Access Restricted (${err.code || 'permission-denied'}):</strong>
+            ${err.message || 'Permission denied'}.<br>
+            Please open <strong>Firebase Console &rarr; Firestore Database &rarr; Rules</strong> and ensure read/write is allowed for the <code>/users</code> collection.
+          `;
+        }
       });
     }
 
